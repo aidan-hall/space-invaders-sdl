@@ -59,6 +59,12 @@ struct Coordinator {
   }
 
   template <typename Component>
+  inline void removeComponent(Entity e) {
+    auto s = getComponent<Signature>(e);
+    s.reset(componentId<Component>());
+  }
+
+  template <typename Component>
   inline Component& getComponent(Entity e) {
     assert(e < nextEntity);
     assert(hasComponent<Component>(e));
