@@ -6,11 +6,15 @@ project(Game VERSION 0.1)
 set(CMAKE_EXPORT_COMPILE_COMMANDS True)
 
 # C Standard.
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 # Executable
-add_executable(Game src/main.cpp)
+add_executable(Game src/tecs.cpp src/main.cpp)
+
+# Includes
+
+target_include_directories(Game PRIVATE "${CMAKE_SOURCE_DIR}/include")
 
 # Files.
 # Libraries.
