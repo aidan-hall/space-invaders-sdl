@@ -3,6 +3,7 @@
 
 #include <bitset>
 #include <cassert>
+#include <concepts>
 #include <cstdint>
 #include <queue>
 #include <set>
@@ -21,8 +22,6 @@ using ComponentId = std::uint8_t;
 // This value means a Signature should fit in a long/64-bit integer.
 static constexpr std::size_t MAX_COMPONENTS = 64;
 using Signature = std::bitset<MAX_COMPONENTS>;
-
-  struct Coordinator;
 
 inline Signature
 componentsSignature(const std::vector<ComponentId> &components) {
@@ -79,16 +78,9 @@ struct SystemManager {
   std::set<Entity> interestsOf(SystemId id) { return systemInterests[id]; }
 };
 
-
-struct System {
-  SystemId id;
-
-
-  virtual void run(const std::set<Entity> &entities, Coordinator &coord) = 0;
-
-  System(const Signature &sig, Coordinator &coord);
-
-};
+struct System;
+template <class T>
+concept system = std::derived_from<System, T>;
 
 struct Coordinator {
 
@@ -105,15 +97,13 @@ struct Coordinator {
 
   SystemId registerSystem(const Signature &sig);
 
-  inline void registerSystem(System& sys, const Signature &sig) {
-    sys.id = registerSystem(sig);
-  }
+  void registerSystem(System &sys, const Signature &sig);
 
   Entity newEntity();
 
   void destroyEntity(Entity e);
 
-  ComponentId registerComponent(const std::type_index& typeIndex);
+  ComponentId registerComponent(const std::type_index &typeIndex);
 
   template <typename Component> inline ComponentId registerComponent() {
     return registerComponent(std::type_index(typeid(Component)));
@@ -125,20 +115,20 @@ struct Coordinator {
   }
 
   void addComponent(Entity e, ComponentId c);
-  
+
   template <typename Component> inline void addComponent(Entity e) {
     addComponent(e, componentId<Component>());
   }
 
   void removeComponent(Entity e, ComponentId c);
 
-
   template <typename Component> inline void removeComponent(Entity e) {
     removeComponent(e, componentId<Component>());
   }
 
   template <typename Component> inline std::vector<Component> &getComponents() {
-    // The ugly foundation upon which this entire 'type safe' ECS framework is based.
+    // The ugly foundation upon which this entire 'type safe' ECS framework is
+    // based.
     static std::vector<Component> components;
     return components;
   }
@@ -167,6 +157,22 @@ template <> inline bool Coordinator::hasComponent<Signature>(Entity e) {
   return true;
 }
 
+struct System {
+  SystemId id;
+
+  virtual void run(const std::set<Entity> &entities, Coordinator &coord) = 0;
+
+  explicit System(const Signature &sig, Coordinator &coord);
+};
+
+inline void Coordinator::registerSystem(System &sys, const Signature &sig) {
+  sys.id = registerSystem(sig);
+}
+
+  template<typename S>
+  inline void runSystem(S &sys, Coordinator &coord) {
+    sys.run(coord.systems.systemInterests[sys.id], coord);
+  }
 
 } // namespace Tecs
 

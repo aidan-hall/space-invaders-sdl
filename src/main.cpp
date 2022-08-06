@@ -12,13 +12,24 @@
 
 using namespace Tecs;
 
-using Position = glm::vec2;
+struct Position {
+  glm::vec2 p;
+};
+
+struct Velocity {
+  glm::vec2 v;
+};
 
 struct RenderCopy {
   SDL_Texture *texture;
   int w;
   int h;
 };
+
+// Framerate.
+
+constexpr int32_t SCREEN_FPS = 60;
+constexpr int32_t SCREEN_TICKS_PER_FRAME = 1000 / SCREEN_FPS;
 
 int main() {
   Coordinator ecs;
@@ -32,17 +43,32 @@ int main() {
   // Set up player.
   const auto POSITION_COMPONENT = ecs.registerComponent<Position>();
   const auto RENDERCOPY_COMPONENT = ecs.registerComponent<RenderCopy>();
+  const auto VELOCITY_COMPONENT = ecs.registerComponent<Velocity>();
 
   auto player = ecs.newEntity();
   ecs.addComponent<Position>(player);
   ecs.addComponent<RenderCopy>(player);
+  ecs.addComponent<Velocity>(player);
 
-  ecs.getComponent<Position>(player) = glm::vec2(200, 200);
+  ecs.getComponent<Position>(player).p = glm::vec2(200, 200);
+  ecs.getComponent<Velocity>(player).v = glm::vec2(1, 1);
   {
     auto &rc = ecs.getComponent<RenderCopy>(player);
     rc.texture = sdl.loadTexture("art/player.png");
     SDL_QueryTexture(rc.texture, nullptr, nullptr, &rc.w, &rc.h);
   }
+
+  struct VelocitySystem : public System {
+    using System::System;
+    void run(const std::set<Entity> &entities, Coordinator &ecs) {
+      for (auto &e : entities) {
+        auto &pos = ecs.getComponent<Position>(e).p;
+        const auto &vel = ecs.getComponent<Velocity>(e).v;
+        pos += vel;
+      }
+    }
+  } velocitySystem(
+      componentsSignature({VELOCITY_COMPONENT, POSITION_COMPONENT}), ecs);
 
   // A system that simply calls SDL_RenderCopy().
   struct RenderCopySystem : System {
@@ -50,7 +76,7 @@ int main() {
 
     void run(const std::set<Entity> &entities, Coordinator &ecs) {
       for (auto &e : entities) {
-        const auto &pos = ecs.getComponent<Position>(e);
+        const auto &pos = ecs.getComponent<Position>(e).p;
         const auto &rc = ecs.getComponent<RenderCopy>(e);
         const SDL_Rect renderRect = {(int)pos.x, (int)pos.y, rc.w, rc.h};
         SDL_RenderCopy(renderer, rc.texture, nullptr, &renderRect);
@@ -71,6 +97,7 @@ int main() {
   bool quit = false;
   while (!quit) {
 
+    auto tick = SDL_GetTicks64();
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
       switch ((SDL_EventType)e.type) {
@@ -82,8 +109,11 @@ int main() {
       }
     }
 
+
+    runSystem(velocitySystem, ecs);
     sdl.renderClear();
-    renderCopySystem.run(ecs.systems.systemInterests[renderCopySystem.id], ecs);
+    runSystem(renderCopySystem, ecs);
     sdl.renderPresent();
+    SDL_Delay(tick + SCREEN_TICKS_PER_FRAME - SDL_GetTicks64());
   }
 }
