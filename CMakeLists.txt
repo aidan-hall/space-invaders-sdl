@@ -10,7 +10,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 # Executable
-add_executable(Game src/tecs.cpp src/main.cpp)
+add_executable(Game src/tecs.cpp src/sdl.cpp src/main.cpp)
 
 # Includes
 
@@ -23,6 +23,8 @@ target_link_libraries(Game PRIVATE SDL2::SDL2)
 target_link_libraries(Game PRIVATE SDL2_image)
 target_link_libraries(Game PRIVATE SDL2_ttf)
 target_link_libraries(Game PRIVATE SDL2_mixer)
+find_package(glm REQUIRED)
+target_link_libraries(Game PRIVATE glm)
 
 # Installation.
 target_compile_options(Game PRIVATE -Wpedantic -Wall -Wextra -Wimplicit-fallthrough -Wshadow)

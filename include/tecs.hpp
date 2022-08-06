@@ -32,6 +32,7 @@ componentsSignature(const std::vector<ComponentId> &components) {
 }
 
 using SystemId = std::size_t;
+
 struct SystemManager {
   SystemId nextSystem = 0;
   std::vector<std::set<Entity>> systemInterests;
@@ -210,6 +211,14 @@ template <> inline bool Coordinator::hasComponent<Signature>(Entity e) {
   std::ignore = e;
   return true;
 }
+
+struct System {
+  SystemId id;
+
+
+  virtual void run(const std::set<Entity> &entities, Coordinator &coord) = 0;
+};
+
 } // namespace Tecs
 
 #endif // TECS_H
