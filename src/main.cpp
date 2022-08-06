@@ -15,7 +15,7 @@ using namespace Tecs;
 using Position = glm::vec2;
 
 struct RenderCopy {
-  SDL_Texture* texture;
+  SDL_Texture *texture;
   int w;
   int h;
 };
@@ -39,28 +39,35 @@ int main() {
 
   ecs.getComponent<Position>(player) = glm::vec2(200, 200);
   {
-    auto& rc = ecs.getComponent<RenderCopy>(player);
+    auto &rc = ecs.getComponent<RenderCopy>(player);
     rc.texture = sdl.loadTexture("art/player.png");
     SDL_QueryTexture(rc.texture, nullptr, nullptr, &rc.w, &rc.h);
   }
 
   // A system that simply calls SDL_RenderCopy().
   struct RenderCopySystem : System {
-    SDL_Renderer* renderer = nullptr;
+    SDL_Renderer *renderer = nullptr;
+
     void run(const std::set<Entity> &entities, Coordinator &ecs) {
-      for (auto& e : entities) {
-        const auto& pos = ecs.getComponent<Position>(e);
-        const auto& rc = ecs.getComponent<RenderCopy>(e);
-        const SDL_Rect renderRect = {(int) pos.x, (int) pos.y, rc.w, rc.h};
+      for (auto &e : entities) {
+        const auto &pos = ecs.getComponent<Position>(e);
+        const auto &rc = ecs.getComponent<RenderCopy>(e);
+        const SDL_Rect renderRect = {(int)pos.x, (int)pos.y, rc.w, rc.h};
         SDL_RenderCopy(renderer, rc.texture, nullptr, &renderRect);
       }
     }
-  } renderCopySystem;
-  renderCopySystem.id = ecs.registerSystem({POSITION_COMPONENT, RENDERCOPY_COMPONENT});
-  renderCopySystem.renderer = sdl.renderer;
+
+    RenderCopySystem(const Signature &sig, Coordinator &coord,
+                     SDL_Renderer *theRenderer)
+        : System(sig, coord) {
+      this->renderer = theRenderer;
+    }
+  } renderCopySystem(
+      componentsSignature({POSITION_COMPONENT, RENDERCOPY_COMPONENT}), ecs,
+      sdl.renderer);
 
   printf("ECS initialised\n");
-  
+
   bool quit = false;
   while (!quit) {
 
@@ -74,7 +81,6 @@ int main() {
         break;
       }
     }
-
 
     sdl.renderClear();
     renderCopySystem.run(ecs.systems.systemInterests[renderCopySystem.id], ecs);

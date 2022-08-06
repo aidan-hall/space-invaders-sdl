@@ -85,6 +85,9 @@ struct System {
 
 
   virtual void run(const std::set<Entity> &entities, Coordinator &coord) = 0;
+
+  System(const Signature &sig, Coordinator &coord);
+
 };
 
 struct Coordinator {
@@ -97,66 +100,23 @@ struct Coordinator {
   ComponentId nextComponentId;
 
   SystemManager systems;
-  std::vector<bool> systemsUpToDate;
 
-  Coordinator() {
-    // A Signature is a Component that every Entity implicitly has,
-    // identifying what other Components it has.
-    nextComponentId = -1;
-    registerComponent<Signature>();
+  Coordinator();
+
+  SystemId registerSystem(const Signature &sig);
+
+  inline void registerSystem(System& sys, const Signature &sig) {
+    sys.id = registerSystem(sig);
   }
 
-  SystemId registerSystem(const Signature &sig) {
-    auto signatures = getComponents<Signature>();
+  Entity newEntity();
 
-    auto s = systems.registerSystem(signatures, sig);
-    systemsUpToDate.push_back(true);
+  void destroyEntity(Entity e);
 
-    return s;
-  }
+  ComponentId registerComponent(const std::type_index& typeIndex);
 
-  SystemId registerSystem(const std::vector<ComponentId> &components) {
-    return registerSystem(componentsSignature(components));
-  }
-
-  inline auto interestsOf(SystemId system) {
-    if (!systemsUpToDate[system]) {
-      systems.updateInterests(getComponents<Signature>(), system);
-    }
-
-    return systems.interestsOf(system);
-  }
-
-  inline Entity newEntity() {
-    Entity e;
-    if (recycledEntities.empty()) {
-      e = nextEntity++;
-    } else {
-      e = recycledEntities.front();
-      recycledEntities.pop();
-    }
-    return e;
-  }
-
-  inline void destroyEntity(Entity e) {
-    getComponent<Signature>(e).reset();
-    for (auto &interest : systems.systemInterests) {
-      interest.erase(e);
-    }
-
-    recycledEntities.push(e);
-  }
-
-  template <typename Component> ComponentId registerComponent() {
-
-    auto ti = std::type_index(typeid(Component));
-    assert(not componentIds.contains(ti));
-
-    const auto myComponentId = nextComponentId;
-    componentIds[ti] = myComponentId;
-    nextComponentId += 1;
-
-    return myComponentId;
+  template <typename Component> inline ComponentId registerComponent() {
+    return registerComponent(std::type_index(typeid(Component)));
   }
 
   template <typename Component> inline ComponentId componentId() {
@@ -164,37 +124,21 @@ struct Coordinator {
     return c;
   }
 
+  void addComponent(Entity e, ComponentId c);
+  
   template <typename Component> inline void addComponent(Entity e) {
-    auto &s = getComponent<Signature>(e);
-    const Signature old = s;
-    s.set(componentId<Component>());
-
-    for (SystemId system = 0; system < systemsUpToDate.size(); ++system) {
-      const auto &systemSignature = systems.systemSignatures[system];
-      if (systems.isInteresting(s, systemSignature) &&
-          !systems.isInteresting(old, systemSignature)) {
-        auto &interests = systems.systemInterests[system];
-        interests.insert(e);
-      }
-    }
+    addComponent(e, componentId<Component>());
   }
 
-  template <typename Component> inline void removeComponent(Entity e) {
-    auto &s = getComponent<Signature>(e);
-    Signature old = s;
-    s.reset(componentId<Component>());
+  void removeComponent(Entity e, ComponentId c);
 
-    for (SystemId system = 0; system < systemsUpToDate.size(); ++system) {
-      const auto &systemSignature = systems.systemSignatures[system];
-      if (systems.isInteresting(old, systemSignature) &&
-          !systems.isInteresting(s, systemSignature)) {
-        auto &interests = systems.systemInterests[system];
-        interests.erase(e);
-      }
-    }
+
+  template <typename Component> inline void removeComponent(Entity e) {
+    removeComponent(e, componentId<Component>());
   }
 
   template <typename Component> inline std::vector<Component> &getComponents() {
+    // The ugly foundation upon which this entire 'type safe' ECS framework is based.
     static std::vector<Component> components;
     return components;
   }
@@ -222,6 +166,7 @@ template <> inline bool Coordinator::hasComponent<Signature>(Entity e) {
   std::ignore = e;
   return true;
 }
+
 
 } // namespace Tecs
 
