@@ -13,6 +13,7 @@ struct Bar {
 
 
 int main() {
+  std::cout << "sizeof(Bar) == " << sizeof(Bar) << std::endl;
   std::cout<< "Hello world!\n";
   Coordinator ecs;
   SystemManager systems;
