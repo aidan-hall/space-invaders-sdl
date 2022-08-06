@@ -114,9 +114,6 @@ SDL_Texture *Context::fancyTextureFromSurface(SDL_Surface *surface) {
   if (surface == nullptr)
     throw Error(__FILE__, __LINE__);
 
-  SDL_SetColorKey(surface, SDL_TRUE,
-                  SDL_MapRGB(surface->format, 0, 0xFF, 0xFF));
-
   SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
   if (texture == nullptr)
     throw Error(__FILE__, __LINE__);
