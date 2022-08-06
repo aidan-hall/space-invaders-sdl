@@ -44,6 +44,11 @@ struct SystemManager {
     return nextSystem++;
   }
 
+  // Whether an entity with the given Signature would be interesting to the given system.
+  static inline bool isInteresting(const Signature& entity, const Signature& system) {
+    return (entity & system) == system;
+  }
+
   // Derive which entities a System with the given Signature would be interested
   // in.
   static std::set<Entity>
@@ -51,7 +56,7 @@ struct SystemManager {
                   const Signature &sig) {
     std::set<Entity> interests;
     for (Entity i = 0; i < entitySignatures.size(); ++i) {
-      if ((entitySignatures[i] & sig) == sig) {
+      if (isInteresting(entitySignatures[i], sig)) {
         interests.insert(i);
       }
     }
@@ -121,6 +126,10 @@ struct Coordinator {
 
   inline void destroyEntity(Entity e) {
     getComponent<Signature>(e).reset();
+    for (auto& interest : systems.systemInterests) {
+      interest.erase(e);
+    }
+
     recycledEntities.push(e);
   }
 
@@ -142,21 +151,31 @@ struct Coordinator {
 
   template <typename Component> inline void addComponent(Entity e) {
     auto &s = getComponent<Signature>(e);
-    auto c = componentId<Component>();
-    s.set(c);
+    const Signature old = s;
+    s.set(componentId<Component>());
 
     for (SystemId system = 0; system < systemsUpToDate.size(); ++system) {
-      auto interests = systems.systemInterests[system];
-      if (interests.contains(e)) {
-        systemsUpToDate[system] = false;
+      const auto& systemSignature = systems.systemSignatures[system];
+      if (systems.isInteresting(s, systemSignature) && !systems.isInteresting(old, systemSignature)) {
+        auto& interests = systems.systemInterests[system];
+        interests.insert(e);
       }
     }
   }
 
   template <typename Component> inline void removeComponent(Entity e) {
-    auto s = getComponent<Signature>(e);
+    auto& s = getComponent<Signature>(e);
+    Signature old = s;
     s.reset(componentId<Component>());
-  }
+
+    for (SystemId system = 0; system < systemsUpToDate.size(); ++system) {
+      const auto& systemSignature = systems.systemSignatures[system];
+      if (systems.isInteresting(old, systemSignature) && !systems.isInteresting(s, systemSignature)) {
+        auto& interests = systems.systemInterests[system];
+        interests.erase(e);
+      }
+    }
+}
 
   template <typename Component> inline std::vector<Component> &getComponents() {
     static std::vector<Component> components;
