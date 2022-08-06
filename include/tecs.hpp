@@ -4,13 +4,13 @@
 #include <bitset>
 #include <cassert>
 #include <cstdint>
+#include <queue>
 #include <set>
 #include <tuple>
 #include <typeindex>
 #include <typeinfo>
 #include <unordered_map>
 #include <vector>
-#include <queue>
 
 // 'Inspired' by https://austinmorlan.com/posts/entity_component_system
 
@@ -18,6 +18,7 @@ namespace Tecs {
 
 using Entity = std::size_t;
 using ComponentId = std::uint8_t;
+// This value means a Signature should fit in a long/64-bit integer.
 static constexpr std::size_t MAX_COMPONENTS = 64;
 using Signature = std::bitset<MAX_COMPONENTS>;
 
@@ -44,8 +45,10 @@ struct SystemManager {
     return nextSystem++;
   }
 
-  // Whether an entity with the given Signature would be interesting to the given system.
-  static inline bool isInteresting(const Signature& entity, const Signature& system) {
+  // Whether an entity with the given Signature would be interesting to the
+  // given system.
+  static inline bool isInteresting(const Signature &entity,
+                                   const Signature &system) {
     return (entity & system) == system;
   }
 
@@ -126,7 +129,7 @@ struct Coordinator {
 
   inline void destroyEntity(Entity e) {
     getComponent<Signature>(e).reset();
-    for (auto& interest : systems.systemInterests) {
+    for (auto &interest : systems.systemInterests) {
       interest.erase(e);
     }
 
@@ -146,7 +149,7 @@ struct Coordinator {
   }
 
   template <typename Component> inline ComponentId componentId() {
-    return componentIds[std::type_index(typeid(Component))];
+    return componentIds.at(std::type_index(typeid(Component)));
   }
 
   template <typename Component> inline void addComponent(Entity e) {
@@ -155,27 +158,29 @@ struct Coordinator {
     s.set(componentId<Component>());
 
     for (SystemId system = 0; system < systemsUpToDate.size(); ++system) {
-      const auto& systemSignature = systems.systemSignatures[system];
-      if (systems.isInteresting(s, systemSignature) && !systems.isInteresting(old, systemSignature)) {
-        auto& interests = systems.systemInterests[system];
+      const auto &systemSignature = systems.systemSignatures[system];
+      if (systems.isInteresting(s, systemSignature) &&
+          !systems.isInteresting(old, systemSignature)) {
+        auto &interests = systems.systemInterests[system];
         interests.insert(e);
       }
     }
   }
 
   template <typename Component> inline void removeComponent(Entity e) {
-    auto& s = getComponent<Signature>(e);
+    auto &s = getComponent<Signature>(e);
     Signature old = s;
     s.reset(componentId<Component>());
 
     for (SystemId system = 0; system < systemsUpToDate.size(); ++system) {
-      const auto& systemSignature = systems.systemSignatures[system];
-      if (systems.isInteresting(old, systemSignature) && !systems.isInteresting(s, systemSignature)) {
-        auto& interests = systems.systemInterests[system];
+      const auto &systemSignature = systems.systemSignatures[system];
+      if (systems.isInteresting(old, systemSignature) &&
+          !systems.isInteresting(s, systemSignature)) {
+        auto &interests = systems.systemInterests[system];
         interests.erase(e);
       }
     }
-}
+  }
 
   template <typename Component> inline std::vector<Component> &getComponents() {
     static std::vector<Component> components;
@@ -183,6 +188,7 @@ struct Coordinator {
   }
 
   template <typename Component> inline Component &getComponent(Entity e) {
+    // TODO: Add assertion that Entity exists.
     assert(e < nextEntity);
     assert(hasComponent<Component>(e));
 
