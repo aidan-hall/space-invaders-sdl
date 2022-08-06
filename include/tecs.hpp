@@ -4,6 +4,7 @@
 #include <bitset>
 #include <cassert>
 #include <cstdint>
+#include <set>
 #include <tuple>
 #include <typeindex>
 #include <typeinfo>
@@ -31,31 +32,39 @@ componentsSignature(const std::vector<ComponentId> &components) {
 using SystemId = std::size_t;
 struct SystemManager {
   SystemId nextSystem = 0;
-  std::vector<std::vector<Entity>> systemInterests;
+  std::vector<std::set<Entity>> systemInterests;
+  std::vector<Signature> systemSignatures;
 
   SystemId registerSystem(const std::vector<Signature> &entitySignatures,
                           const Signature &sig) {
     systemInterests.push_back(deriveInterests(entitySignatures, sig));
+    systemSignatures.push_back(sig);
 
     return nextSystem++;
   }
 
   // Derive which entities a System with the given Signature would be interested
   // in.
-  static std::vector<Entity>
+  static std::set<Entity>
   deriveInterests(const std::vector<Signature> &entitySignatures,
                   const Signature &sig) {
-    std::vector<Entity> interests;
+    std::set<Entity> interests;
     for (Entity i = 0; i < entitySignatures.size(); ++i) {
       if ((entitySignatures[i] & sig) == sig) {
-        interests.push_back(i);
+        interests.insert(i);
       }
     }
 
     return interests;
   }
 
-  std::vector<Entity> interestsOf(SystemId id) { return systemInterests[id]; }
+  void updateInterests(const std::vector<Signature> &entitySignatures,
+                       SystemId system) {
+    systemInterests[system] =
+        deriveInterests(entitySignatures, systemSignatures[system]);
+  }
+
+  std::set<Entity> interestsOf(SystemId id) { return systemInterests[id]; }
 };
 
 struct Coordinator {
@@ -79,11 +88,22 @@ struct Coordinator {
   SystemId registerSystem(const Signature &sig) {
     auto signatures = getComponents<Signature>();
 
-    return systems.registerSystem(signatures, sig);
+    auto s = systems.registerSystem(signatures, sig);
+    systemsUpToDate.push_back(true);
+
+    return s;
   }
 
   SystemId registerSystem(const std::vector<ComponentId> &components) {
     return registerSystem(componentsSignature(components));
+  }
+
+  inline auto interestsOf(SystemId system) {
+    if (!systemsUpToDate[system]) {
+      systems.updateInterests(getComponents<Signature>(), system);
+    }
+
+    return systems.interestsOf(system);
   }
 
   inline Entity newEntity() { return nextEntity++; }
@@ -108,6 +128,13 @@ struct Coordinator {
     auto &s = getComponent<Signature>(e);
     auto c = componentId<Component>();
     s.set(c);
+
+    for (SystemId system = 0; system < systemsUpToDate.size(); ++system) {
+      auto interests = systems.systemInterests[system];
+      if (interests.contains(e)) {
+        systemsUpToDate[system] = false;
+      }
+    }
   }
 
   template <typename Component> inline void removeComponent(Entity e) {
