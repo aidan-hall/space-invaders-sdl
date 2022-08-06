@@ -23,7 +23,11 @@ int main() {
   std::cout<< "Player 1's ID: " << player << std::endl;
   Entity alien = ecs.newEntity();
 
+  std::cout << "Interests of Physics system before & after adding Bar to player:\n";
   ecs.addComponent<Vec2>(player);
+  std::cout << ecs.systems.systemInterests[0].size() << std::endl;
+  ecs.addComponent<Bar>(player);
+  std::cout << ecs.systems.systemInterests[0].size() << std::endl;
   {
     auto& v = ecs.getComponent<Vec2>(player);
     v.x = 5;
@@ -34,5 +38,6 @@ int main() {
 
   auto player2 = ecs.newEntity();
   std::cout<< "Player 2's ID: " << player2 << std::endl;
+  std::cout << "Interests of physics system now: " << ecs.systems.systemInterests[0].size() << std::endl;
   
 }
