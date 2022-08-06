@@ -10,6 +10,7 @@
 #include <typeinfo>
 #include <unordered_map>
 #include <vector>
+#include <queue>
 
 // 'Inspired' by https://austinmorlan.com/posts/entity_component_system
 
@@ -72,6 +73,7 @@ struct Coordinator {
   std::unordered_map<std::type_index, ComponentId> componentIds;
 
   Entity nextEntity = 0;
+  std::queue<Entity> recycledEntities;
 
   ComponentId nextComponentId;
 
@@ -106,7 +108,21 @@ struct Coordinator {
     return systems.interestsOf(system);
   }
 
-  inline Entity newEntity() { return nextEntity++; }
+  inline Entity newEntity() {
+    Entity e;
+    if (recycledEntities.empty()) {
+      e = nextEntity++;
+    } else {
+      e = recycledEntities.front();
+      recycledEntities.pop();
+    }
+    return e;
+  }
+
+  inline void destroyEntity(Entity e) {
+    getComponent<Signature>(e).reset();
+    recycledEntities.push(e);
+  }
 
   template <typename Component> ComponentId registerComponent() {
 
