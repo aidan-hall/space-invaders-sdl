@@ -47,7 +47,7 @@ Context::Context(Uint32 initFlags, std::string name, SDL_Rect dimensions,
   if (Mix_Init(MY_MIXER_FLAGS) < 0)
     throw Error(__FILE__, __LINE__);
 
-  if (Mix_OpenAudio( 44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0)
+  if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0)
     throw Error(__FILE__, __LINE__);
 
   // Create window
@@ -97,6 +97,11 @@ Context::~Context() {
   for (auto font : this->fonts) {
     TTF_CloseFont(font);
   }
+
+  for (auto texture : textures) {
+    SDL_DestroyTexture(texture);
+  }
+
   SDL_DestroyWindow(window);
   SDL_DestroyRenderer(renderer);
   TTF_Quit();
@@ -133,16 +138,19 @@ SDL_Texture *Context::loadTexture(std::string path) {
   SDL_Surface *mediaSurface = IMG_Load(path.c_str());
   SDL_Texture *mediaTexture = fancyTextureFromSurface(mediaSurface);
   SDL_FreeSurface(mediaSurface);
+  textures.push_back(mediaTexture);
   return mediaTexture;
 }
 
 std::vector<SDL_Texture *>
 Context::loadTextures(std::vector<std::string> paths) {
-  auto textures = std::vector<SDL_Texture *>();
+  auto loadingTextures = std::vector<SDL_Texture *>();
   for (auto path : paths) {
-    textures.push_back(loadTexture(path.c_str()));
+    auto t = loadTexture(path.c_str());
+    loadingTextures.push_back(t);
+    textures.push_back(t);
   }
-  return textures;
+  return loadingTextures;
 }
 
 void Context::setRenderDrawColor(Uint32 hex) {

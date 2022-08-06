@@ -24,6 +24,7 @@ struct Context {
   SDL_Renderer *renderer = nullptr;
   SDL_Rect windowDimensions;
   std::vector<TTF_Font *> fonts;
+  std::vector<SDL_Texture *> textures;
 
   Context(Uint32 initFlags, std::string name, SDL_Rect dimensions,
           Uint32 windowFlags, std::vector<const char *> fontFiles);
