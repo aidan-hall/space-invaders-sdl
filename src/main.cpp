@@ -1,11 +1,13 @@
 #include "sdl.hpp"
 #include <SDL.h>
 #include <SDL_events.h>
+#include <SDL_keyboard.h>
 #include <SDL_rect.h>
 #include <SDL_render.h>
 #include <SDL_timer.h>
 #include <SDL_video.h>
 #include <cstdio>
+#include <glm/geometric.hpp>
 #include <glm/glm.hpp>
 #include <iostream>
 #include <tecs.hpp>
@@ -67,21 +69,28 @@ int main() {
   const auto RENDERCOPY_COMPONENT = ecs.registerComponent<RenderCopy>();
   const auto VELOCITY_COMPONENT = ecs.registerComponent<Velocity>();
   const auto CHASING_COMPONENT = ecs.registerComponent<Chasing>();
+  const auto PLAYER_COMPONENT = ecs.registerComponent<Player>();
 
   // Set up player.
   auto player = ecs.newEntity();
   makeStaticSprite(player, ecs, {{100, 100}},
                    sdl.loadTexture("art/player.png"));
+  ecs.addComponent<Velocity>(player);
+  ecs.addComponent<Player>(player);
+  ecs.getComponent<Velocity>(player) = {{0, 0}};
 
   // Set up aliens.
   auto alienTexture = sdl.loadTexture("art/alien1.png");
   std::vector<Entity> aliens;
-  for (int i = 0; i < 1000; ++i) {
-    auto alien = ecs.newEntity();
-    makeStaticSprite(alien, ecs, {{i * 10, 200 + i * 10}}, alienTexture);
-    ecs.addComponent<Chasing>(alien);
-    ecs.getComponent<Chasing>(alien) = {player, glm::vec1(1)};
-    aliens.push_back(alien);
+  for (int i = 0; i < 32; ++i) {
+    for (int j = 0; j < 32; ++j) {
+      auto alien = ecs.newEntity();
+      makeStaticSprite(alien, ecs, {{j + 3 + i * 50, i * 3 + j * 50}},
+                       alienTexture);
+      ecs.addComponent<Chasing>(alien);
+      ecs.getComponent<Chasing>(alien) = {alien - 1, glm::vec1(2)};
+      aliens.push_back(alien);
+    }
   }
 
   struct VelocitySystem : public System {
@@ -105,12 +114,49 @@ int main() {
         const auto &myPos = ecs.getComponent<Position>(e).p;
         auto &velocity = ecs.getComponent<Velocity>(e);
 
-        velocity = {glm::normalize(targetPos - myPos) * chasing.speed};
+        auto difference = targetPos - myPos;
+        constexpr float CHASING_SPACE = 30;
+        if (glm::length(difference) > CHASING_SPACE) {
+          velocity = {glm::normalize(difference) * chasing.speed};
+        } else {
+          velocity = {{0, 0}};
+        }
       }
     }
   } chasingSystem(componentsSignature({CHASING_COMPONENT, POSITION_COMPONENT,
                                        VELOCITY_COMPONENT}),
                   ecs);
+
+  struct PlayerControlSystem : System {
+    using System::System;
+    void run(const std::set<Entity> &entities, Coordinator &ecs) {
+      auto keyboardState = SDL_GetKeyboardState(nullptr);
+      constexpr float PLAYER_MAX_SPEED = 5.0;
+      constexpr float PLAYER_MAX_SPEED_SQUARED =
+          PLAYER_MAX_SPEED * PLAYER_MAX_SPEED;
+      for (auto &e : entities) {
+        auto &velocity = ecs.getComponent<Velocity>(e).v;
+        if (keyboardState[SDL_SCANCODE_UP]) {
+          velocity.y -= 0.2;
+        }
+        if (keyboardState[SDL_SCANCODE_DOWN]) {
+          velocity.y += 0.2;
+        }
+        if (keyboardState[SDL_SCANCODE_LEFT]) {
+          velocity.x -= 0.2;
+        }
+        if (keyboardState[SDL_SCANCODE_RIGHT]) {
+          velocity.x += 0.2;
+        }
+
+        if (velocity.x * velocity.x + velocity.y * velocity.y >=
+            PLAYER_MAX_SPEED_SQUARED) {
+          velocity = glm::normalize(velocity) * PLAYER_MAX_SPEED;
+        }
+      }
+    }
+  } playerControlSystem(
+      componentsSignature({PLAYER_COMPONENT, VELOCITY_COMPONENT}), ecs);
 
   // A system that simply calls SDL_RenderCopy().
   struct RenderCopySystem : System {
@@ -151,6 +197,7 @@ int main() {
       }
     }
 
+    runSystem(playerControlSystem, ecs);
     runSystem(chasingSystem, ecs);
     runSystem(velocitySystem, ecs);
 
