@@ -27,5 +27,5 @@ find_package(glm REQUIRED)
 target_link_libraries(Game PRIVATE glm)
 
 # Installation.
-target_compile_options(Game PRIVATE -Wpedantic -Wall -Wextra -Wimplicit-fallthrough -Wshadow)
+target_compile_options(Game PRIVATE -Wpedantic -Wall -Wextra -Wimplicit-fallthrough -Wshadow -g)
 file(CREATE_LINK "${CMAKE_BINARY_DIR}/compile_commands.json" "${CMAKE_SOURCE_DIR}/compile_commands.json" SYMBOLIC)

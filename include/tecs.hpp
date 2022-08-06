@@ -22,6 +22,8 @@ using ComponentId = std::uint8_t;
 static constexpr std::size_t MAX_COMPONENTS = 64;
 using Signature = std::bitset<MAX_COMPONENTS>;
 
+  struct Coordinator;
+
 inline Signature
 componentsSignature(const std::vector<ComponentId> &components) {
   Signature s;
@@ -75,6 +77,14 @@ struct SystemManager {
   }
 
   std::set<Entity> interestsOf(SystemId id) { return systemInterests[id]; }
+};
+
+
+struct System {
+  SystemId id;
+
+
+  virtual void run(const std::set<Entity> &entities, Coordinator &coord) = 0;
 };
 
 struct Coordinator {
@@ -150,7 +160,8 @@ struct Coordinator {
   }
 
   template <typename Component> inline ComponentId componentId() {
-    return componentIds.at(std::type_index(typeid(Component)));
+    const auto c = componentIds.at(std::type_index(typeid(Component)));
+    return c;
   }
 
   template <typename Component> inline void addComponent(Entity e) {
@@ -211,13 +222,6 @@ template <> inline bool Coordinator::hasComponent<Signature>(Entity e) {
   std::ignore = e;
   return true;
 }
-
-struct System {
-  SystemId id;
-
-
-  virtual void run(const std::set<Entity> &entities, Coordinator &coord) = 0;
-};
 
 } // namespace Tecs
 
