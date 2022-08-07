@@ -69,6 +69,14 @@ void makeStaticSprite(Entity entity, Coordinator &ecs, Position initPos,
   }
 }
 
+void shootBullet(Coordinator &ecs, Position initPos, Velocity initVel, SDL_Texture *texture) {
+  auto bullet = ecs.newEntity();
+  makeStaticSprite(bullet, ecs, initPos, texture);
+
+  ecs.addComponent<Velocity>(bullet);
+  ecs.getComponent<Velocity>(bullet) = {initVel};
+}
+
 int main() {
   Coordinator ecs;
 
@@ -130,6 +138,9 @@ int main() {
     ecs.addComponent<Health>(barrier);
     ecs.getComponent<Health>(barrier) = {100.0, 100.0, 40.0};
   }
+
+  // Load bullet sprite.
+  SDL_Texture* bulletTexture = sdl.loadTexture("art/bullet.png");
 
   struct VelocitySystem : public System {
     using System::System;
@@ -277,6 +288,14 @@ int main() {
       case SDL_QUIT:
         quit = true;
         break;
+      case SDL_KEYDOWN: {
+        switch (e.key.keysym.sym) {
+        case SDLK_SPACE:
+          shootBullet(ecs, ecs.getComponent<Position>(player), {{0, -5}}, bulletTexture);
+          break;
+        }
+        break;
+      }
       default:
         break;
       }
