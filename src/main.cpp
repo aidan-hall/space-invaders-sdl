@@ -12,6 +12,7 @@
 #include <glm/geometric.hpp>
 #include <glm/glm.hpp>
 #include <iostream>
+#include <queue>
 #include <random>
 #include <tecs.hpp>
 #include <vector>
@@ -69,9 +70,8 @@ struct CollisionBounds {
   }
   inline SDL_Rect sdl_rectangle(const Position &pos) const {
     Rectangle box = rectangle(pos);
-    SDL_Rect sdl_rectangle = {
-      static_cast<int>(box.x), static_cast<int>(box.y),
-      static_cast<int>(box.w), static_cast<int>(box.h)};
+    SDL_Rect sdl_rectangle = {static_cast<int>(box.x), static_cast<int>(box.y),
+                              static_cast<int>(box.w), static_cast<int>(box.h)};
     return sdl_rectangle;
   }
 };
@@ -82,13 +82,13 @@ struct CollisionBox {
   LayerMask layer; // The component 'exists' on these layers.
 };
 
-constexpr float ALIEN_INIT_SPEED = 0.5;
+constexpr float ALIEN_INIT_SPEED = 0.2;
 constexpr float ALIEN_SHUFFLE_DISTANCE = 100.0;
-constexpr float ALIEN_DROP_DISTANCE = 20.0;
+constexpr float ALIEN_DROP_DISTANCE = 10.0;
 constexpr int ALIEN_ROWS = 4;
-constexpr int ALIEN_COLUMNS = 10;
+constexpr int ALIEN_COLUMNS = 20;
 constexpr int INITIAL_N_ALIENS = ALIEN_ROWS * ALIEN_COLUMNS;
-constexpr float ALIEN_SPEED_INCREMENT = 0.05;
+constexpr float ALIEN_SPEED_INCREMENT = 0.02;
 
 // Framerate.
 
@@ -123,11 +123,17 @@ Entity makeBullet(Coordinator &ecs, Position initPos, Velocity initVel,
   return bullet;
 }
 
+enum class GameEvent {
+  GameOver,
+};
+
+std::queue<GameEvent> events;
+
 int main() {
   Coordinator ecs;
 
   SDL::Context sdl(SDL_INIT_VIDEO, "Space Invaders",
-                   {SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480},
+                   {SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720},
                    SDL_WINDOW_SHOWN, {"fonts/GroovetasticRegular.ttf"});
 
   SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
@@ -156,7 +162,7 @@ int main() {
   ecs.addComponent<HealthBar>(player);
   ecs.getComponent<HealthBar>(player) = {25.0};
   ecs.addComponent<CollisionBounds>(player);
-  ecs.getComponent<CollisionBounds>(player) = {{16, 16}, 0x2};
+  ecs.getComponent<CollisionBounds>(player) = {{16, 16}, 0x2 | 0x4};
 
   // Set up aliens.
 
@@ -165,18 +171,19 @@ int main() {
   for (int j = 1; j <= ALIEN_ROWS; ++j) {
     for (int i = 1; i <= ALIEN_COLUMNS; ++i) {
       auto alien = ecs.newEntity();
-      glm::vec2 pos = {i * 50, j * 40};
-      makeStaticSprite(alien, ecs, {pos}, alienTexture);
+      glm::vec2 pos = {i * 50 + j * 2, j * 60};
+      makeStaticSprite(alien, ecs, {{pos.x + j * 20, pos.y}}, alienTexture);
       ecs.addComponent<Alien>(alien);
+      ecs.getComponent<Alien>(alien).start_x = pos.x;
+      // Off-sets the rows.
       ecs.addComponent<Velocity>(alien);
       ecs.addComponent<CollisionBounds>(alien);
 
       ecs.addComponent<Health>(alien);
       ecs.getComponent<Health>(alien) = {1.0, 1.0};
 
-      ecs.getComponent<Alien>(alien).start_x = pos.x;
       ecs.getComponent<Velocity>(alien) = {{ALIEN_INIT_SPEED, 0}};
-      ecs.getComponent<CollisionBounds>(alien) = {{16, 16}, 0x1};
+      ecs.getComponent<CollisionBounds>(alien) = {{16, 16}, 0x1 | 0x4};
       aliens.push_back(alien);
     }
   }
@@ -186,7 +193,7 @@ int main() {
   for (int i = 0; i < 4; ++i) {
     auto barrier = ecs.newEntity();
     makeStaticSprite(barrier, ecs,
-                     {{80 + 160 * i, sdl.windowDimensions.h - 150}},
+                     {{sdl.windowDimensions.w * (0.5 + i)/4.0, sdl.windowDimensions.h - 150}},
                      barrierTexture);
     auto &rc = ecs.getComponent<RenderCopy>(barrier);
     constexpr int BARRIER_SCALE = 3;
@@ -198,7 +205,8 @@ int main() {
     ecs.addComponent<HealthBar>(barrier);
     ecs.getComponent<HealthBar>(barrier) = {40.0};
     ecs.addComponent<CollisionBounds>(barrier);
-    ecs.getComponent<CollisionBounds>(barrier) = {{BARRIER_SCALE * 16, BARRIER_SCALE * 8}, 0x3};
+    ecs.getComponent<CollisionBounds>(barrier) = {
+        {BARRIER_SCALE * 16, BARRIER_SCALE * 8}, 0x3 | 0x4};
   }
 
   // Load bullet sprite.
@@ -228,9 +236,10 @@ int main() {
         auto &velocity = ecs.getComponent<Velocity>(e).v;
         if (keyboardState[SDL_SCANCODE_LEFT]) {
           velocity.x -= 0.2;
-        }
-        if (keyboardState[SDL_SCANCODE_RIGHT]) {
+        } else if (keyboardState[SDL_SCANCODE_RIGHT]) {
           velocity.x += 0.2;
+        } else {
+          velocity.x *= 0.9;
         }
 
         auto &pos = ecs.getComponent<Position>(e).p;
@@ -342,6 +351,22 @@ int main() {
                     ecs);
   healthBarSystem.renderer = sdl.renderer;
 
+  struct DeathSystem : System {
+    using System::System;
+
+    void run(const std::set<Entity> &entities, Coordinator &ecs) {
+      for (auto &e : entities) {
+        auto &health = ecs.getComponent<Health>(e);
+        if (health.current <= 0.0) {
+          ecs.queueDestroyEntity(e);
+          if (ecs.hasComponent<Player>(e)) {
+            events.push(GameEvent::GameOver);
+          }
+        }
+      }
+    }
+  } deathSystem(componentsSignature({HEALTH_COMPONENT}), ecs);
+
   struct EnemyShootingSystem : System {
     using System::System;
     SDL_Texture *enemyBullet;
@@ -390,7 +415,10 @@ int main() {
               ((aBounds.layer & bBounds.layer) != LayerMask{0})) {
             ecs.getComponent<Health>(a).current -= 1.0;
             ecs.getComponent<Health>(b).current -= 1.0;
-            std::cout << "Collision\n";
+            if ((aBounds.layer & bBounds.layer & LayerMask{0x4}) !=
+                LayerMask{0}) {
+              events.push(GameEvent::GameOver);
+            }
           }
         }
       }
@@ -402,6 +430,25 @@ int main() {
                     }),
                     ecs);
   collisionSystem.renderer = sdl.renderer;
+
+  struct AlienEncroachmentSystem : System {
+    using System::System;
+    int border;
+    int screen_width;
+    SDL_Renderer* renderer;
+    void run(const std::set<Entity> &aliens, Coordinator &ecs) {
+      SDL_SetRenderDrawColor(renderer, 0xFF, 0x00, 0x00, 0x00);
+      SDL_RenderDrawLine(renderer, 0, border, screen_width, border);
+      for (auto& e : aliens) {
+        if (ecs.getComponent<Position>(e).p.y > border) {
+          events.push(GameEvent::GameOver);
+        }
+      }
+    }
+  } alienEncroachmentSystem(componentsSignature({ALIEN_COMPONENT, POSITION_COMPONENT}), ecs);
+  alienEncroachmentSystem.border = sdl.windowDimensions.h - 80;
+  alienEncroachmentSystem.renderer = sdl.renderer;
+  alienEncroachmentSystem.screen_width = sdl.windowDimensions.w;
 
   printf("ECS initialised\n");
 
@@ -439,11 +486,29 @@ int main() {
     sdl.renderClear();
 
     runSystem(collisionSystem, ecs);
+    runSystem(alienEncroachmentSystem, ecs);
 
     runSystem(renderCopySystem, ecs);
     runSystem(healthBarSystem, ecs);
 
+    runSystem(deathSystem, ecs);
+
+    // Process events
+    while (not events.empty()) {
+      switch (events.front()) {
+      case GameEvent::GameOver:
+        quit = true;
+        break;
+      }
+      events.pop();
+    }
+
     sdl.renderPresent();
+
+
+    ecs.destroyQueued();
+
+    
 
     SDL_Delay(tick + SCREEN_TICKS_PER_FRAME - SDL_GetTicks64());
   }

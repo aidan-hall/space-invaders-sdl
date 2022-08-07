@@ -88,6 +88,7 @@ struct Coordinator {
 
   Entity nextEntity = 0;
   std::queue<Entity> recycledEntities;
+  std::queue<Entity> pendingDestructions;
 
   ComponentId nextComponentId;
 
@@ -101,7 +102,14 @@ struct Coordinator {
 
   Entity newEntity();
 
+  // DO NOT CALL IN A SYSTEM
   void destroyEntity(Entity e);
+
+  // Queues Entity for destruction with next call to destroyQueued(). "Safe" in Systems.
+  void queueDestroyEntity(Entity e);
+
+  // DO NOT CALL IN A SYSTEM
+  void destroyQueued();
 
   ComponentId registerComponent(const std::type_index &typeIndex);
 

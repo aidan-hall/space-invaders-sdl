@@ -1,6 +1,7 @@
 #include <bitset>
 #include <cassert>
 #include <typeindex>
+#include <iostream>
 
 #include <tecs.hpp>
 
@@ -40,6 +41,19 @@ void Coordinator::destroyEntity(Entity e) {
   }
 
   recycledEntities.push(e);
+}
+
+void Coordinator::queueDestroyEntity(Entity e) {
+  pendingDestructions.push(e);
+}
+
+void Coordinator::destroyQueued() {
+  while (!pendingDestructions.empty()) {
+    Entity e = pendingDestructions.front();
+    std::cout << "Destroying: " << e << std::endl;
+    pendingDestructions.pop();
+    destroyEntity(e);
+  }
 }
 
 ComponentId Coordinator::registerComponent(const std::type_index& typeIndex) {
