@@ -27,21 +27,25 @@ struct Velocity {
 
 struct Player {};
 
+struct Alien {
+  float start_x;
+};
+
 struct RenderCopy {
   SDL_Texture *texture;
   int w;
   int h;
 };
 
-struct Chasing {
-  Entity target;
-  glm::vec1 speed;
-};
-
 struct Health {
   float current;
   float max;
+  float hover_distance;
 };
+
+constexpr float ALIEN_INIT_SPEED = 0.5;
+constexpr float ALIEN_SHUFFLE_DISTANCE = 100.0;
+constexpr float ALIEN_DROP_DISTANCE = 20.0;
 
 // Framerate.
 
@@ -67,40 +71,60 @@ int main() {
 
   SDL::Context sdl(SDL_INIT_VIDEO, "Space Invaders",
                    {SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480},
-                   SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE,
-                   {"fonts/GroovetasticRegular.ttf"});
+                   SDL_WINDOW_SHOWN, {"fonts/GroovetasticRegular.ttf"});
+
+  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
 
   printf("SDL initialised\n");
 
   const auto POSITION_COMPONENT = ecs.registerComponent<Position>();
   const auto RENDERCOPY_COMPONENT = ecs.registerComponent<RenderCopy>();
   const auto VELOCITY_COMPONENT = ecs.registerComponent<Velocity>();
-  const auto CHASING_COMPONENT = ecs.registerComponent<Chasing>();
   const auto PLAYER_COMPONENT = ecs.registerComponent<Player>();
   const auto HEALTH_COMPONENT = ecs.registerComponent<Health>();
+  const auto ALIEN_COMPONENT = ecs.registerComponent<Alien>();
 
   // Set up player.
   auto player = ecs.newEntity();
-  makeStaticSprite(player, ecs, {{100, 100}},
+  makeStaticSprite(player, ecs,
+                   {{sdl.windowDimensions.w / 2, sdl.windowDimensions.h - 40}},
                    sdl.loadTexture("art/player.png"));
   ecs.addComponent<Velocity>(player);
   ecs.addComponent<Player>(player);
   ecs.getComponent<Velocity>(player) = {{0, 0}};
   ecs.addComponent<Health>(player);
-  ecs.getComponent<Health>(player) = {5.0, 7.0};
+  ecs.getComponent<Health>(player) = {3.0, 3.0, 25.0};
 
   // Set up aliens.
+
   auto alienTexture = sdl.loadTexture("art/alien1.png");
   std::vector<Entity> aliens;
-  for (int i = 0; i < 32; ++i) {
-    for (int j = 0; j < 32; ++j) {
+  for (int i = 1; i <= 10; ++i) {
+    for (int j = 1; j <= 4; ++j) {
       auto alien = ecs.newEntity();
-      makeStaticSprite(alien, ecs, {{i * 3 + j * 50, j + 3 + i * 50}},
-                       alienTexture);
-      ecs.addComponent<Chasing>(alien);
-      ecs.getComponent<Chasing>(alien) = {player, glm::vec1(-2.0)};
+      glm::vec2 pos = {i * 50, j * 40};
+      makeStaticSprite(alien, ecs, {pos}, alienTexture);
+      ecs.addComponent<Alien>(alien);
+      ecs.getComponent<Alien>(alien).start_x = pos.x;
+      ecs.getComponent<Velocity>(alien) = {{ALIEN_INIT_SPEED, 0}};
       aliens.push_back(alien);
     }
+  }
+
+  // Set up barriers.
+  auto barrierTexture = sdl.loadTexture("art/barrier.png");
+  for (int i = 0; i < 4; ++i) {
+    auto barrier = ecs.newEntity();
+    makeStaticSprite(barrier, ecs,
+                     {{80 + 160 * i, sdl.windowDimensions.h - 150}},
+                     barrierTexture);
+    auto &rc = ecs.getComponent<RenderCopy>(barrier);
+    constexpr int BARRIER_SCALE = 3;
+    rc.w *= BARRIER_SCALE;
+    rc.h *= BARRIER_SCALE;
+
+    ecs.addComponent<Health>(barrier);
+    ecs.getComponent<Health>(barrier) = {100.0, 100.0, 40.0};
   }
 
   struct VelocitySystem : public System {
@@ -115,30 +139,9 @@ int main() {
   } velocitySystem(
       componentsSignature({VELOCITY_COMPONENT, POSITION_COMPONENT}), ecs);
 
-  struct ChasingSystem : System {
-    using System::System;
-    void run(const std::set<Entity> &entities, Coordinator &ecs) {
-      for (auto &e : entities) {
-        const auto &chasing = ecs.getComponent<Chasing>(e);
-        const auto &targetPos = ecs.getComponent<Position>(chasing.target).p;
-        const auto &myPos = ecs.getComponent<Position>(e).p;
-        auto &velocity = ecs.getComponent<Velocity>(e);
-
-        auto difference = targetPos - myPos;
-        constexpr float CHASING_SPACE = 100;
-        if (glm::length(difference) < CHASING_SPACE) {
-          velocity = {glm::normalize(difference) * chasing.speed};
-        } else {
-          velocity = {{0, 0}};
-        }
-      }
-    }
-  } chasingSystem(componentsSignature({CHASING_COMPONENT, POSITION_COMPONENT,
-                                       VELOCITY_COMPONENT}),
-                  ecs);
-
   struct PlayerControlSystem : System {
     using System::System;
+    SDL::Context *sdl;
     void run(const std::set<Entity> &entities, Coordinator &ecs) {
       auto keyboardState = SDL_GetKeyboardState(nullptr);
       constexpr float PLAYER_MAX_SPEED = 5.0;
@@ -146,12 +149,6 @@ int main() {
           PLAYER_MAX_SPEED * PLAYER_MAX_SPEED;
       for (auto &e : entities) {
         auto &velocity = ecs.getComponent<Velocity>(e).v;
-        if (keyboardState[SDL_SCANCODE_UP]) {
-          velocity.y -= 0.2;
-        }
-        if (keyboardState[SDL_SCANCODE_DOWN]) {
-          velocity.y += 0.2;
-        }
         if (keyboardState[SDL_SCANCODE_LEFT]) {
           velocity.x -= 0.2;
         }
@@ -159,14 +156,50 @@ int main() {
           velocity.x += 0.2;
         }
 
-        if (velocity.x * velocity.x + velocity.y * velocity.y >=
-            PLAYER_MAX_SPEED_SQUARED) {
+        auto &pos = ecs.getComponent<Position>(e).p;
+
+        constexpr int WINDOW_MARGIN = 50;
+        if (pos.x > sdl->windowDimensions.w - WINDOW_MARGIN) {
+          pos.x = sdl->windowDimensions.w - WINDOW_MARGIN;
+          velocity.x = 0;
+        } else if (pos.x < WINDOW_MARGIN) {
+          pos.x = WINDOW_MARGIN;
+          velocity.x = 0;
+        } else if (velocity.x * velocity.x + velocity.y * velocity.y >=
+                   PLAYER_MAX_SPEED_SQUARED) {
           velocity = glm::normalize(velocity) * PLAYER_MAX_SPEED;
         }
       }
     }
   } playerControlSystem(
-      componentsSignature({PLAYER_COMPONENT, VELOCITY_COMPONENT}), ecs);
+      componentsSignature(
+          {PLAYER_COMPONENT, VELOCITY_COMPONENT, POSITION_COMPONENT}),
+      ecs);
+  playerControlSystem.sdl = &sdl;
+
+  struct AlienMovementSystem : System {
+    using System::System;
+    SDL::Context *sdl;
+    float alien_speed = ALIEN_INIT_SPEED;
+    void run(const std::set<Entity> &entities, Coordinator &ecs) {
+      for (auto &e : entities) {
+        auto &pos = ecs.getComponent<Position>(e).p;
+        auto &vel = ecs.getComponent<Velocity>(e).v;
+        const auto &start_x = ecs.getComponent<Alien>(e).start_x;
+        if (pos.x < start_x) {
+          pos.y += ALIEN_DROP_DISTANCE;
+          vel.x = alien_speed;
+        } else if (pos.x > start_x + ALIEN_SHUFFLE_DISTANCE) {
+          pos.y += ALIEN_DROP_DISTANCE;
+          vel.x = -alien_speed;
+        }
+      }
+    }
+  } alienMovementSystem(
+      componentsSignature(
+          {ALIEN_COMPONENT, POSITION_COMPONENT, VELOCITY_COMPONENT}),
+      ecs);
+  alienMovementSystem.sdl = &sdl;
 
   // A system that simply calls SDL_RenderCopy().
   struct RenderCopySystem : System {
@@ -198,7 +231,6 @@ int main() {
     void run(const std::set<Entity> &entities, Coordinator &ecs) {
       constexpr int BAR_HEIGHT = 5;
       constexpr int BAR_LENGTH = 30;
-      constexpr int BAR_HOVER_DISTANCE = -20;
       SDL_Rect current_bar;
       SDL_Rect empty_bar;
       empty_bar.w = BAR_LENGTH;
@@ -207,7 +239,7 @@ int main() {
       for (auto &e : entities) {
         const auto &pos = ecs.getComponent<Position>(e).p;
         const auto &health = ecs.getComponent<Health>(e);
-        empty_bar.y = current_bar.y = pos.y + BAR_HOVER_DISTANCE - BAR_HEIGHT;
+        empty_bar.y = current_bar.y = pos.y + health.hover_distance - BAR_HEIGHT;
         current_bar.x = pos.x - (float)BAR_LENGTH / 2;
         current_bar.w = (health.current / health.max) * BAR_LENGTH;
         empty_bar.x = current_bar.x + current_bar.w;
@@ -242,7 +274,7 @@ int main() {
     }
 
     runSystem(playerControlSystem, ecs);
-    runSystem(chasingSystem, ecs);
+    runSystem(alienMovementSystem, ecs);
     runSystem(velocitySystem, ecs);
 
     SDL_SetRenderDrawColor(sdl.renderer, 0x00, 0x00, 0x00, 0x00);
