@@ -70,13 +70,15 @@ void makeStaticSprite(Entity entity, Coordinator &ecs, Position initPos,
   }
 }
 
-void shootBullet(Coordinator &ecs, Position initPos, Velocity initVel,
-                 SDL_Texture *texture) {
+Entity makeBullet(Coordinator &ecs, Position initPos, Velocity initVel,
+                  SDL_Texture *texture) {
   auto bullet = ecs.newEntity();
   makeStaticSprite(bullet, ecs, initPos, texture);
 
   ecs.addComponent<Velocity>(bullet);
   ecs.getComponent<Velocity>(bullet) = {initVel};
+
+  return bullet;
 }
 
 int main() {
@@ -293,8 +295,7 @@ int main() {
         // Generate a binomially distributed random number indicating how many
         // aliens to go along before firing.
         if (nextFire <= 0) {
-          shootBullet(ecs, ecs.getComponent<Position>(e), {{0, 3}},
-                      enemyBullet);
+          makeBullet(ecs, ecs.getComponent<Position>(e), {{0, 3}}, enemyBullet);
           nextFire = firing(gen);
         } else {
           nextFire -= 1;
@@ -322,8 +323,8 @@ int main() {
       case SDL_KEYDOWN: {
         switch (e.key.keysym.sym) {
         case SDLK_SPACE:
-          shootBullet(ecs, ecs.getComponent<Position>(player), {{0, -5}},
-                      bulletTexture);
+          makeBullet(ecs, ecs.getComponent<Position>(player), {{0, -5}},
+                     bulletTexture);
           break;
         }
         break;
