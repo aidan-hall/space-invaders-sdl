@@ -53,10 +53,25 @@ struct Rectangle {
   float y;
   float w;
   float h;
+
+  static Rectangle fromSdlRect(SDL_Rect rect) {
+
+    Rectangle it;
+    it.x = static_cast<float>(rect.x);
+    it.y = static_cast<float>(rect.y);
+    it.w = static_cast<float>(rect.w);
+    it.h = static_cast<float>(rect.h);
+    return it;
+  }
 };
 inline bool rectangleIntersection(const Rectangle &a, const Rectangle &b) {
   return !(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y ||
            b.y + b.h <= a.y);
+}
+
+inline bool pointInRectangle(const Rectangle &a, const Position &pos) {
+  const auto &p = pos.p;
+  return (a.x < p.x && p.x < a.x + a.w && a.y < p.y && p.y < a.y + a.h);
 }
 
 using LayerMask = std::bitset<8>;
@@ -88,7 +103,7 @@ constexpr float ALIEN_DROP_DISTANCE = 10.0;
 constexpr int ALIEN_ROWS = 4;
 constexpr int ALIEN_COLUMNS = 20;
 constexpr int INITIAL_N_ALIENS = ALIEN_ROWS * ALIEN_COLUMNS;
-constexpr float ALIEN_SPEED_INCREMENT = 0.02;
+constexpr float ALIEN_SPEED_INCREMENT = 0.015;
 
 // Framerate.
 
@@ -193,7 +208,8 @@ int main() {
   for (int i = 0; i < 4; ++i) {
     auto barrier = ecs.newEntity();
     makeStaticSprite(barrier, ecs,
-                     {{sdl.windowDimensions.w * (0.5 + i)/4.0, sdl.windowDimensions.h - 150}},
+                     {{sdl.windowDimensions.w * (0.5 + i) / 4.0,
+                       sdl.windowDimensions.h - 150}},
                      barrierTexture);
     auto &rc = ecs.getComponent<RenderCopy>(barrier);
     constexpr int BARRIER_SCALE = 3;
@@ -435,20 +451,38 @@ int main() {
     using System::System;
     int border;
     int screen_width;
-    SDL_Renderer* renderer;
+    SDL_Renderer *renderer;
     void run(const std::set<Entity> &aliens, Coordinator &ecs) {
       SDL_SetRenderDrawColor(renderer, 0xFF, 0x00, 0x00, 0x00);
       SDL_RenderDrawLine(renderer, 0, border, screen_width, border);
-      for (auto& e : aliens) {
+      for (auto &e : aliens) {
         if (ecs.getComponent<Position>(e).p.y > border) {
           events.push(GameEvent::GameOver);
         }
       }
     }
-  } alienEncroachmentSystem(componentsSignature({ALIEN_COMPONENT, POSITION_COMPONENT}), ecs);
+  } alienEncroachmentSystem(
+      componentsSignature({ALIEN_COMPONENT, POSITION_COMPONENT}), ecs);
   alienEncroachmentSystem.border = sdl.windowDimensions.h - 80;
   alienEncroachmentSystem.renderer = sdl.renderer;
   alienEncroachmentSystem.screen_width = sdl.windowDimensions.w;
+
+  struct OffscreenSystem : System {
+    using System::System;
+
+    Rectangle screen_space;
+
+    void run(const std::set<Entity> &entities, Coordinator &ecs) {
+      for (const auto &e : entities) {
+        if (not pointInRectangle(screen_space, ecs.getComponent<Position>(e))) {
+          ecs.queueDestroyEntity(e);
+        }
+      }
+    }
+  } offscreenSystem(componentsSignature({POSITION_COMPONENT}), ecs);
+  offscreenSystem.screen_space = {0, 0,
+                                  static_cast<float>(sdl.windowDimensions.w),
+                                  static_cast<float>(sdl.windowDimensions.h)};
 
   printf("ECS initialised\n");
 
@@ -490,6 +524,7 @@ int main() {
 
     runSystem(renderCopySystem, ecs);
     runSystem(healthBarSystem, ecs);
+    runSystem(offscreenSystem, ecs);
 
     runSystem(deathSystem, ecs);
 
@@ -505,10 +540,7 @@ int main() {
 
     sdl.renderPresent();
 
-
     ecs.destroyQueued();
-
-    
 
     SDL_Delay(tick + SCREEN_TICKS_PER_FRAME - SDL_GetTicks64());
   }
