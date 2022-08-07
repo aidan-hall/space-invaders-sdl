@@ -46,6 +46,10 @@ struct Health {
 constexpr float ALIEN_INIT_SPEED = 0.5;
 constexpr float ALIEN_SHUFFLE_DISTANCE = 100.0;
 constexpr float ALIEN_DROP_DISTANCE = 20.0;
+constexpr int ALIEN_ROWS = 4;
+constexpr int ALIEN_COLUMNS = 10;
+constexpr int INITIAL_N_ALIENS = ALIEN_ROWS * ALIEN_COLUMNS;
+constexpr float ALIEN_SPEED_INCREMENT = 0.05;
 
 // Framerate.
 
@@ -56,7 +60,6 @@ void makeStaticSprite(Entity entity, Coordinator &ecs, Position initPos,
                       SDL_Texture *texture) {
   ecs.addComponent<Position>(entity);
   ecs.addComponent<RenderCopy>(entity);
-  ecs.addComponent<Velocity>(entity);
 
   ecs.getComponent<Position>(entity) = initPos;
   {
@@ -91,7 +94,6 @@ int main() {
                    sdl.loadTexture("art/player.png"));
   ecs.addComponent<Velocity>(player);
   ecs.addComponent<Player>(player);
-  ecs.getComponent<Velocity>(player) = {{0, 0}};
   ecs.addComponent<Health>(player);
   ecs.getComponent<Health>(player) = {3.0, 3.0, 25.0};
 
@@ -99,12 +101,14 @@ int main() {
 
   auto alienTexture = sdl.loadTexture("art/alien1.png");
   std::vector<Entity> aliens;
-  for (int i = 1; i <= 10; ++i) {
-    for (int j = 1; j <= 4; ++j) {
+  for (int j = 1; j <= ALIEN_ROWS; ++j) {
+    for (int i = 1; i <= ALIEN_COLUMNS; ++i) {
       auto alien = ecs.newEntity();
       glm::vec2 pos = {i * 50, j * 40};
       makeStaticSprite(alien, ecs, {pos}, alienTexture);
       ecs.addComponent<Alien>(alien);
+      ecs.addComponent<Velocity>(alien);
+
       ecs.getComponent<Alien>(alien).start_x = pos.x;
       ecs.getComponent<Velocity>(alien) = {{ALIEN_INIT_SPEED, 0}};
       aliens.push_back(alien);
@@ -182,7 +186,10 @@ int main() {
     SDL::Context *sdl;
     float alien_speed = ALIEN_INIT_SPEED;
     void run(const std::set<Entity> &entities, Coordinator &ecs) {
+      int current_n_aliens = 0;
       for (auto &e : entities) {
+        current_n_aliens += 1;
+
         auto &pos = ecs.getComponent<Position>(e).p;
         auto &vel = ecs.getComponent<Velocity>(e).v;
         const auto &start_x = ecs.getComponent<Alien>(e).start_x;
@@ -194,6 +201,8 @@ int main() {
           vel.x = -alien_speed;
         }
       }
+
+      alien_speed = ALIEN_INIT_SPEED + ALIEN_SPEED_INCREMENT * (INITIAL_N_ALIENS - current_n_aliens);
     }
   } alienMovementSystem(
       componentsSignature(
