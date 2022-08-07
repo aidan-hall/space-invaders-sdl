@@ -413,12 +413,9 @@ int main() {
     using System::System;
     SDL_Renderer *renderer;
     void run(const std::set<Entity> &entities, Coordinator &ecs) {
-      SDL_SetRenderDrawColor(renderer, 100, 255, 255, 200);
       for (auto &a : entities) {
         const auto &aPos = ecs.getComponent<Position>(a);
         const auto &aBounds = ecs.getComponent<CollisionBounds>(a);
-        auto hitbox = aBounds.sdl_rectangle(aPos);
-        SDL_RenderDrawRect(renderer, &hitbox);
         for (auto &b : entities) {
           if (b == a) {
             break;
