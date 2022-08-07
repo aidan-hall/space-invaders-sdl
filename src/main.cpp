@@ -12,6 +12,7 @@
 #include <glm/geometric.hpp>
 #include <glm/glm.hpp>
 #include <iostream>
+#include <random>
 #include <tecs.hpp>
 #include <vector>
 
@@ -69,7 +70,8 @@ void makeStaticSprite(Entity entity, Coordinator &ecs, Position initPos,
   }
 }
 
-void shootBullet(Coordinator &ecs, Position initPos, Velocity initVel, SDL_Texture *texture) {
+void shootBullet(Coordinator &ecs, Position initPos, Velocity initVel,
+                 SDL_Texture *texture) {
   auto bullet = ecs.newEntity();
   makeStaticSprite(bullet, ecs, initPos, texture);
 
@@ -140,7 +142,7 @@ int main() {
   }
 
   // Load bullet sprite.
-  SDL_Texture* bulletTexture = sdl.loadTexture("art/bullet.png");
+  SDL_Texture *bulletTexture = sdl.loadTexture("art/bullet.png");
 
   struct VelocitySystem : public System {
     using System::System;
@@ -213,7 +215,9 @@ int main() {
         }
       }
 
-      alien_speed = ALIEN_INIT_SPEED + ALIEN_SPEED_INCREMENT * (INITIAL_N_ALIENS - current_n_aliens);
+      alien_speed =
+          ALIEN_INIT_SPEED +
+          ALIEN_SPEED_INCREMENT * (INITIAL_N_ALIENS - current_n_aliens);
     }
   } alienMovementSystem(
       componentsSignature(
@@ -259,7 +263,8 @@ int main() {
       for (auto &e : entities) {
         const auto &pos = ecs.getComponent<Position>(e).p;
         const auto &health = ecs.getComponent<Health>(e);
-        empty_bar.y = current_bar.y = pos.y + health.hover_distance - BAR_HEIGHT;
+        empty_bar.y = current_bar.y =
+            pos.y + health.hover_distance - BAR_HEIGHT;
         current_bar.x = pos.x - (float)BAR_LENGTH / 2;
         current_bar.w = (health.current / health.max) * BAR_LENGTH;
         empty_bar.x = current_bar.x + current_bar.w;
@@ -276,6 +281,32 @@ int main() {
                  ecs);
   healthSystem.renderer = sdl.renderer;
 
+  struct EnemyShootingSystem : System {
+    using System::System;
+    SDL_Texture *enemyBullet;
+    std::random_device rd;
+    std::mt19937 gen;
+    std::binomial_distribution<> firing;
+    int nextFire = 0;
+    void run(const std::set<Entity> &entities, Coordinator &ecs) {
+      for (auto &e : entities) {
+        // Generate a binomially distributed random number indicating how many
+        // aliens to go along before firing.
+        if (nextFire <= 0) {
+          shootBullet(ecs, ecs.getComponent<Position>(e), {{0, 3}},
+                      enemyBullet);
+          nextFire = firing(gen);
+        } else {
+          nextFire -= 1;
+        }
+      }
+    }
+  } enemyShootingSystem(
+      componentsSignature({ALIEN_COMPONENT, POSITION_COMPONENT}), ecs);
+  enemyShootingSystem.firing = std::binomial_distribution<>(3000);
+  enemyShootingSystem.gen = std::mt19937(enemyShootingSystem.rd());
+  enemyShootingSystem.enemyBullet = sdl.loadTexture("art/enemy-bullet.png");
+
   printf("ECS initialised\n");
 
   bool quit = false;
@@ -291,7 +322,8 @@ int main() {
       case SDL_KEYDOWN: {
         switch (e.key.keysym.sym) {
         case SDLK_SPACE:
-          shootBullet(ecs, ecs.getComponent<Position>(player), {{0, -5}}, bulletTexture);
+          shootBullet(ecs, ecs.getComponent<Position>(player), {{0, -5}},
+                      bulletTexture);
           break;
         }
         break;
@@ -304,6 +336,7 @@ int main() {
     runSystem(playerControlSystem, ecs);
     runSystem(alienMovementSystem, ecs);
     runSystem(velocitySystem, ecs);
+    runSystem(enemyShootingSystem, ecs);
 
     SDL_SetRenderDrawColor(sdl.renderer, 0x00, 0x00, 0x00, 0x00);
 
