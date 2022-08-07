@@ -36,6 +36,11 @@ struct Chasing {
   glm::vec1 speed;
 };
 
+struct Health {
+  float current;
+  float max;
+};
+
 // Framerate.
 
 constexpr int32_t SCREEN_FPS = 60;
@@ -70,6 +75,7 @@ int main() {
   const auto VELOCITY_COMPONENT = ecs.registerComponent<Velocity>();
   const auto CHASING_COMPONENT = ecs.registerComponent<Chasing>();
   const auto PLAYER_COMPONENT = ecs.registerComponent<Player>();
+  const auto HEALTH_COMPONENT = ecs.registerComponent<Health>();
 
   // Set up player.
   auto player = ecs.newEntity();
@@ -78,6 +84,8 @@ int main() {
   ecs.addComponent<Velocity>(player);
   ecs.addComponent<Player>(player);
   ecs.getComponent<Velocity>(player) = {{0, 0}};
+  ecs.addComponent<Health>(player);
+  ecs.getComponent<Health>(player) = {5.0, 7.0};
 
   // Set up aliens.
   auto alienTexture = sdl.loadTexture("art/alien1.png");
@@ -180,6 +188,39 @@ int main() {
       componentsSignature({POSITION_COMPONENT, RENDERCOPY_COMPONENT}), ecs,
       sdl.renderer);
 
+  struct HealthSystem : System {
+    SDL_Renderer *renderer = nullptr;
+
+    using System::System;
+    void run(const std::set<Entity> &entities, Coordinator &ecs) {
+      constexpr int BAR_HEIGHT = 5;
+      constexpr int BAR_LENGTH = 30;
+      constexpr int BAR_HOVER_DISTANCE = -20;
+      SDL_Rect current_bar;
+      SDL_Rect empty_bar;
+      empty_bar.w = BAR_LENGTH;
+      empty_bar.h = BAR_HEIGHT;
+      current_bar.h = BAR_HEIGHT;
+      for (auto &e : entities) {
+        const auto &pos = ecs.getComponent<Position>(e).p;
+        const auto &health = ecs.getComponent<Health>(e);
+        empty_bar.y = current_bar.y = pos.y + BAR_HOVER_DISTANCE - BAR_HEIGHT;
+        current_bar.x = pos.x - (float)BAR_LENGTH/2;
+        current_bar.w = (health.current/health.max) * BAR_LENGTH;
+        empty_bar.x = current_bar.x + current_bar.w;
+        empty_bar.w = BAR_LENGTH - current_bar.w;
+        // Draw remaining health.
+        SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0x00, 0x00);
+        SDL_RenderFillRect(renderer, &current_bar);
+        // Draw leftover health bar.
+        SDL_SetRenderDrawColor(renderer, 0xFF, 0x00, 0x00, 0x00);
+        SDL_RenderFillRect(renderer, &empty_bar);
+      }
+    }
+  } healthSystem(componentsSignature({HEALTH_COMPONENT, POSITION_COMPONENT}),
+                 ecs);
+  healthSystem.renderer = sdl.renderer;
+
   printf("ECS initialised\n");
 
   bool quit = false;
@@ -201,9 +242,16 @@ int main() {
     runSystem(chasingSystem, ecs);
     runSystem(velocitySystem, ecs);
 
+    SDL_SetRenderDrawColor(sdl.renderer, 0x00, 0x00, 0x00, 0x00);
+
+    // Rendering
     sdl.renderClear();
+
     runSystem(renderCopySystem, ecs);
+    runSystem(healthSystem, ecs);
+
     sdl.renderPresent();
+
     SDL_Delay(tick + SCREEN_TICKS_PER_FRAME - SDL_GetTicks64());
   }
 }
