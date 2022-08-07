@@ -41,6 +41,9 @@ struct RenderCopy {
 struct Health {
   float current;
   float max;
+};
+
+struct HealthBar {
   float hover_distance;
 };
 
@@ -57,23 +60,26 @@ inline bool rectangleIntersection(const Rectangle &a, const Rectangle &b) {
 
 using LayerMask = std::bitset<8>;
 
+struct CollisionBounds {
+  glm::vec2 spacing;
+  LayerMask layer;
+  inline Rectangle rectangle(const Position &pos) const {
+    return {pos.p.x - spacing.x, pos.p.y - spacing.y, spacing.x * 2,
+            spacing.y * 2};
+  }
+  inline SDL_Rect sdl_rectangle(const Position &pos) const {
+    Rectangle box = rectangle(pos);
+    SDL_Rect sdl_rectangle = {
+      static_cast<int>(box.x), static_cast<int>(box.y),
+      static_cast<int>(box.w), static_cast<int>(box.h)};
+    return sdl_rectangle;
+  }
+};
+
 struct CollisionBox {
   Position pos;
   glm::vec2 spacing;
   LayerMask layer; // The component 'exists' on these layers.
-  inline Rectangle bounds() const {
-    return {pos.p.x - spacing.x, pos.p.y - spacing.y, spacing.x * 2, spacing.y * 2};
-  }
-  inline static bool collision(const CollisionBox &a,
-                               const CollisionBox &b) {
-    return (rectangleIntersection(a.bounds(), b.bounds())) &&
-           ((a.layer & b.layer) != LayerMask{0});
-  }
-
-  inline bool collides(const CollisionBox &other) const {
-    const auto &myself = *this;
-    return collision(myself, other);
-  }
 };
 
 constexpr float ALIEN_INIT_SPEED = 0.5;
@@ -103,12 +109,16 @@ void makeStaticSprite(Entity entity, Coordinator &ecs, Position initPos,
 }
 
 Entity makeBullet(Coordinator &ecs, Position initPos, Velocity initVel,
-                  SDL_Texture *texture) {
+                  SDL_Texture *texture, const CollisionBounds &bounds) {
   auto bullet = ecs.newEntity();
   makeStaticSprite(bullet, ecs, initPos, texture);
 
   ecs.addComponent<Velocity>(bullet);
   ecs.getComponent<Velocity>(bullet) = {initVel};
+  ecs.addComponent<Health>(bullet);
+  ecs.getComponent<Health>(bullet) = {1.0, 1.0};
+  ecs.addComponent<CollisionBounds>(bullet);
+  ecs.getComponent<CollisionBounds>(bullet) = bounds;
 
   return bullet;
 }
@@ -129,9 +139,10 @@ int main() {
   const auto VELOCITY_COMPONENT = ecs.registerComponent<Velocity>();
   const auto PLAYER_COMPONENT = ecs.registerComponent<Player>();
   const auto HEALTH_COMPONENT = ecs.registerComponent<Health>();
+  const auto HEALTH_BAR_COMPONENT = ecs.registerComponent<HealthBar>();
   const auto ALIEN_COMPONENT = ecs.registerComponent<Alien>();
-  const auto COLLISION_BOX_COMPONENT =
-      ecs.registerComponent<CollisionBox>();
+  const auto COLLISION_BOUNDS_COMPONENT =
+      ecs.registerComponent<CollisionBounds>();
 
   // Set up player.
   auto player = ecs.newEntity();
@@ -141,7 +152,11 @@ int main() {
   ecs.addComponent<Velocity>(player);
   ecs.addComponent<Player>(player);
   ecs.addComponent<Health>(player);
-  ecs.getComponent<Health>(player) = {3.0, 3.0, 25.0};
+  ecs.getComponent<Health>(player) = {3.0, 3.0};
+  ecs.addComponent<HealthBar>(player);
+  ecs.getComponent<HealthBar>(player) = {25.0};
+  ecs.addComponent<CollisionBounds>(player);
+  ecs.getComponent<CollisionBounds>(player) = {{16, 16}, 0x2};
 
   // Set up aliens.
 
@@ -154,9 +169,14 @@ int main() {
       makeStaticSprite(alien, ecs, {pos}, alienTexture);
       ecs.addComponent<Alien>(alien);
       ecs.addComponent<Velocity>(alien);
+      ecs.addComponent<CollisionBounds>(alien);
+
+      ecs.addComponent<Health>(alien);
+      ecs.getComponent<Health>(alien) = {1.0, 1.0};
 
       ecs.getComponent<Alien>(alien).start_x = pos.x;
       ecs.getComponent<Velocity>(alien) = {{ALIEN_INIT_SPEED, 0}};
+      ecs.getComponent<CollisionBounds>(alien) = {{16, 16}, 0x1};
       aliens.push_back(alien);
     }
   }
@@ -174,7 +194,11 @@ int main() {
     rc.h *= BARRIER_SCALE;
 
     ecs.addComponent<Health>(barrier);
-    ecs.getComponent<Health>(barrier) = {100.0, 100.0, 40.0};
+    ecs.getComponent<Health>(barrier) = {100.0, 100.0};
+    ecs.addComponent<HealthBar>(barrier);
+    ecs.getComponent<HealthBar>(barrier) = {40.0};
+    ecs.addComponent<CollisionBounds>(barrier);
+    ecs.getComponent<CollisionBounds>(barrier) = {{BARRIER_SCALE * 16, BARRIER_SCALE * 8}, 0x3};
   }
 
   // Load bullet sprite.
@@ -284,7 +308,7 @@ int main() {
       componentsSignature({POSITION_COMPONENT, RENDERCOPY_COMPONENT}), ecs,
       sdl.renderer);
 
-  struct HealthSystem : System {
+  struct HealthBarSystem : System {
     SDL_Renderer *renderer = nullptr;
 
     using System::System;
@@ -299,8 +323,8 @@ int main() {
       for (auto &e : entities) {
         const auto &pos = ecs.getComponent<Position>(e).p;
         const auto &health = ecs.getComponent<Health>(e);
-        empty_bar.y = current_bar.y =
-            pos.y + health.hover_distance - BAR_HEIGHT;
+        const auto &bar = ecs.getComponent<HealthBar>(e);
+        empty_bar.y = current_bar.y = pos.y + bar.hover_distance - BAR_HEIGHT;
         current_bar.x = pos.x - (float)BAR_LENGTH / 2;
         current_bar.w = (health.current / health.max) * BAR_LENGTH;
         empty_bar.x = current_bar.x + current_bar.w;
@@ -313,9 +337,10 @@ int main() {
         SDL_RenderFillRect(renderer, &empty_bar);
       }
     }
-  } healthSystem(componentsSignature({HEALTH_COMPONENT, POSITION_COMPONENT}),
-                 ecs);
-  healthSystem.renderer = sdl.renderer;
+  } healthBarSystem(componentsSignature({HEALTH_COMPONENT, HEALTH_BAR_COMPONENT,
+                                         POSITION_COMPONENT}),
+                    ecs);
+  healthBarSystem.renderer = sdl.renderer;
 
   struct EnemyShootingSystem : System {
     using System::System;
@@ -329,7 +354,8 @@ int main() {
         // Generate a binomially distributed random number indicating how many
         // aliens to go along before firing.
         if (nextFire <= 0) {
-          makeBullet(ecs, ecs.getComponent<Position>(e), {{0, 3}}, enemyBullet);
+          makeBullet(ecs, ecs.getComponent<Position>(e), {{0, 3}}, enemyBullet,
+                     {{2, 4}, 0x2});
           nextFire = firing(gen);
         } else {
           nextFire -= 1;
@@ -344,27 +370,38 @@ int main() {
 
   struct CollisionSystem : System {
     using System::System;
+    SDL_Renderer *renderer;
     void run(const std::set<Entity> &entities, Coordinator &ecs) {
-      for (auto& a: entities) {
-        for (auto& b: entities) {
+      SDL_SetRenderDrawColor(renderer, 100, 255, 255, 200);
+      for (auto &a : entities) {
+        const auto &aPos = ecs.getComponent<Position>(a);
+        const auto &aBounds = ecs.getComponent<CollisionBounds>(a);
+        auto hitbox = aBounds.sdl_rectangle(aPos);
+        SDL_RenderDrawRect(renderer, &hitbox);
+        for (auto &b : entities) {
           if (b == a) {
             break;
           }
 
-          const auto& aBox = ecs.getComponent<CollisionBox>(a);
-          const auto& bBox = ecs.getComponent<CollisionBox>(b);
-          if (aBox.collides(bBox)) {
+          const auto &bBounds = ecs.getComponent<CollisionBounds>(b);
+          const auto &bPos = ecs.getComponent<Position>(b);
+          if ((rectangleIntersection(aBounds.rectangle(aPos),
+                                     bBounds.rectangle(bPos))) &&
+              ((aBounds.layer & bBounds.layer) != LayerMask{0})) {
             ecs.getComponent<Health>(a).current -= 1.0;
             ecs.getComponent<Health>(b).current -= 1.0;
+            std::cout << "Collision\n";
           }
         }
       }
     }
   } collisionSystem(componentsSignature({
-      HEALTH_COMPONENT,
-      POSITION_COMPONENT,
-      COLLISION_BOX_COMPONENT,
-      }), ecs);
+                        HEALTH_COMPONENT,
+                        POSITION_COMPONENT,
+                        COLLISION_BOUNDS_COMPONENT,
+                    }),
+                    ecs);
+  collisionSystem.renderer = sdl.renderer;
 
   printf("ECS initialised\n");
 
@@ -382,7 +419,7 @@ int main() {
         switch (e.key.keysym.sym) {
         case SDLK_SPACE:
           makeBullet(ecs, ecs.getComponent<Position>(player), {{0, -5}},
-                     bulletTexture);
+                     bulletTexture, {{2, 4}, 0x1});
           break;
         }
         break;
@@ -397,13 +434,14 @@ int main() {
     runSystem(velocitySystem, ecs);
     runSystem(enemyShootingSystem, ecs);
 
-    SDL_SetRenderDrawColor(sdl.renderer, 0x00, 0x00, 0x00, 0x00);
-
     // Rendering
+    SDL_SetRenderDrawColor(sdl.renderer, 0x00, 0x00, 0x00, 0x00);
     sdl.renderClear();
 
+    runSystem(collisionSystem, ecs);
+
     runSystem(renderCopySystem, ecs);
-    runSystem(healthSystem, ecs);
+    runSystem(healthBarSystem, ecs);
 
     sdl.renderPresent();
 
