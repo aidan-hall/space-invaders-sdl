@@ -169,6 +169,7 @@ inline void Coordinator::registerSystem(System &sys, const Signature &sig) {
   sys.id = registerSystem(sig);
 }
 
+  // Pretty much just a utility, and I desperately want to avoid vtable lookup.
   template<typename S>
   inline void runSystem(S &sys, Coordinator &coord) {
     sys.run(coord.systems.systemInterests[sys.id], coord);
