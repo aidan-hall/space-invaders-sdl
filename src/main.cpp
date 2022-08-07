@@ -1,11 +1,13 @@
 #include "sdl.hpp"
 #include <SDL.h>
 #include <SDL_events.h>
+#include <SDL_hints.h>
 #include <SDL_keyboard.h>
 #include <SDL_rect.h>
 #include <SDL_render.h>
 #include <SDL_timer.h>
 #include <SDL_video.h>
+#include <cstdint>
 #include <cstdio>
 #include <glm/geometric.hpp>
 #include <glm/glm.hpp>
