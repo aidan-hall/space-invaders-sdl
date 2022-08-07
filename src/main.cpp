@@ -93,10 +93,10 @@ int main() {
   for (int i = 0; i < 32; ++i) {
     for (int j = 0; j < 32; ++j) {
       auto alien = ecs.newEntity();
-      makeStaticSprite(alien, ecs, {{j + 3 + i * 50, i * 3 + j * 50}},
+      makeStaticSprite(alien, ecs, {{i * 3 + j * 50, j + 3 + i * 50}},
                        alienTexture);
       ecs.addComponent<Chasing>(alien);
-      ecs.getComponent<Chasing>(alien) = {alien - 1, glm::vec1(2)};
+      ecs.getComponent<Chasing>(alien) = {player, glm::vec1(-2.0)};
       aliens.push_back(alien);
     }
   }
@@ -123,8 +123,8 @@ int main() {
         auto &velocity = ecs.getComponent<Velocity>(e);
 
         auto difference = targetPos - myPos;
-        constexpr float CHASING_SPACE = 30;
-        if (glm::length(difference) > CHASING_SPACE) {
+        constexpr float CHASING_SPACE = 100;
+        if (glm::length(difference) < CHASING_SPACE) {
           velocity = {glm::normalize(difference) * chasing.speed};
         } else {
           velocity = {{0, 0}};
@@ -174,7 +174,8 @@ int main() {
       for (auto &e : entities) {
         const auto &pos = ecs.getComponent<Position>(e).p;
         const auto &rc = ecs.getComponent<RenderCopy>(e);
-        const SDL_Rect renderRect = {(int)pos.x, (int)pos.y, rc.w, rc.h};
+        const SDL_Rect renderRect = {(int)pos.x - rc.w / 2,
+                                     (int)pos.y - rc.h / 2, rc.w, rc.h};
         SDL_RenderCopy(renderer, rc.texture, nullptr, &renderRect);
       }
     }
@@ -205,8 +206,8 @@ int main() {
         const auto &pos = ecs.getComponent<Position>(e).p;
         const auto &health = ecs.getComponent<Health>(e);
         empty_bar.y = current_bar.y = pos.y + BAR_HOVER_DISTANCE - BAR_HEIGHT;
-        current_bar.x = pos.x - (float)BAR_LENGTH/2;
-        current_bar.w = (health.current/health.max) * BAR_LENGTH;
+        current_bar.x = pos.x - (float)BAR_LENGTH / 2;
+        current_bar.w = (health.current / health.max) * BAR_LENGTH;
         empty_bar.x = current_bar.x + current_bar.w;
         empty_bar.w = BAR_LENGTH - current_bar.w;
         // Draw remaining health.
