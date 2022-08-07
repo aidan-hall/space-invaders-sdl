@@ -44,6 +44,38 @@ struct Health {
   float hover_distance;
 };
 
+struct Rectangle {
+  float x;
+  float y;
+  float w;
+  float h;
+};
+inline bool rectangleIntersection(const Rectangle &a, const Rectangle &b) {
+  return !(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y ||
+           b.y + b.h <= a.y);
+}
+
+using LayerMask = std::bitset<8>;
+
+struct CollisionBox {
+  Position pos;
+  glm::vec2 spacing;
+  LayerMask layer; // The component 'exists' on these layers.
+  inline Rectangle bounds() const {
+    return {pos.p.x - spacing.x, pos.p.y - spacing.y, spacing.x * 2, spacing.y * 2};
+  }
+  inline static bool collision(const CollisionBox &a,
+                               const CollisionBox &b) {
+    return (rectangleIntersection(a.bounds(), b.bounds())) &&
+           ((a.layer & b.layer) != LayerMask{0});
+  }
+
+  inline bool collides(const CollisionBox &other) const {
+    const auto &myself = *this;
+    return collision(myself, other);
+  }
+};
+
 constexpr float ALIEN_INIT_SPEED = 0.5;
 constexpr float ALIEN_SHUFFLE_DISTANCE = 100.0;
 constexpr float ALIEN_DROP_DISTANCE = 20.0;
@@ -98,6 +130,8 @@ int main() {
   const auto PLAYER_COMPONENT = ecs.registerComponent<Player>();
   const auto HEALTH_COMPONENT = ecs.registerComponent<Health>();
   const auto ALIEN_COMPONENT = ecs.registerComponent<Alien>();
+  const auto COLLISION_BOX_COMPONENT =
+      ecs.registerComponent<CollisionBox>();
 
   // Set up player.
   auto player = ecs.newEntity();
@@ -307,6 +341,30 @@ int main() {
   enemyShootingSystem.firing = std::binomial_distribution<>(3000);
   enemyShootingSystem.gen = std::mt19937(enemyShootingSystem.rd());
   enemyShootingSystem.enemyBullet = sdl.loadTexture("art/enemy-bullet.png");
+
+  struct CollisionSystem : System {
+    using System::System;
+    void run(const std::set<Entity> &entities, Coordinator &ecs) {
+      for (auto& a: entities) {
+        for (auto& b: entities) {
+          if (b == a) {
+            break;
+          }
+
+          const auto& aBox = ecs.getComponent<CollisionBox>(a);
+          const auto& bBox = ecs.getComponent<CollisionBox>(b);
+          if (aBox.collides(bBox)) {
+            ecs.getComponent<Health>(a).current -= 1.0;
+            ecs.getComponent<Health>(b).current -= 1.0;
+          }
+        }
+      }
+    }
+  } collisionSystem(componentsSignature({
+      HEALTH_COMPONENT,
+      POSITION_COMPONENT,
+      COLLISION_BOX_COMPONENT,
+      }), ecs);
 
   printf("ECS initialised\n");
 
