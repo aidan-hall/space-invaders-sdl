@@ -217,7 +217,7 @@ int main() {
     rc.h *= BARRIER_SCALE;
 
     ecs.addComponent<Health>(barrier);
-    ecs.getComponent<Health>(barrier) = {100.0, 100.0};
+    ecs.getComponent<Health>(barrier) = {15.0, 15.0};
     ecs.addComponent<HealthBar>(barrier);
     ecs.getComponent<HealthBar>(barrier) = {40.0};
     ecs.addComponent<CollisionBounds>(barrier);
