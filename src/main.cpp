@@ -98,7 +98,7 @@ struct CollisionBox {
 };
 
 constexpr float ALIEN_INIT_SPEED = 0.2;
-constexpr float ALIEN_SHUFFLE_DISTANCE = 100.0;
+constexpr float ALIEN_SHUFFLE_DISTANCE = 200.0;
 constexpr float ALIEN_DROP_DISTANCE = 10.0;
 constexpr int ALIEN_ROWS = 4;
 constexpr int ALIEN_COLUMNS = 20;
