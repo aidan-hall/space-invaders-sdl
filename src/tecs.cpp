@@ -30,7 +30,7 @@ Entity Coordinator::newEntity() {
     e = nextEntity++;
   } else {
     e = recycledEntities.front();
-    recycledEntities.pop();
+    recycledEntities.dequeue();
   }
   return e;
 }
@@ -40,18 +40,18 @@ void Coordinator::destroyEntity(Entity e) {
     interest.erase(e);
   }
 
-  recycledEntities.push(e);
+  recycledEntities.enqueue(e);
 }
 
 void Coordinator::queueDestroyEntity(Entity e) {
-  pendingDestructions.push(e);
+  pendingDestructions.enqueue(e);
 }
 
 void Coordinator::destroyQueued() {
   while (!pendingDestructions.empty()) {
     Entity e = pendingDestructions.front();
     std::cout << "Destroying: " << e << std::endl;
-    pendingDestructions.pop();
+    pendingDestructions.dequeue();
     destroyEntity(e);
   }
 }

@@ -13,6 +13,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include <circular_queue.hpp>
+
 // 'Inspired' by https://austinmorlan.com/posts/entity_component_system
 
 namespace Tecs {
@@ -87,8 +89,8 @@ struct Coordinator {
   std::unordered_map<std::type_index, ComponentId> componentIds;
 
   Entity nextEntity = 0;
-  std::queue<Entity> recycledEntities;
-  std::queue<Entity> pendingDestructions;
+  Unusual::CircularQueue<Entity, 200> recycledEntities;
+  Unusual::CircularQueue<Entity, 5> pendingDestructions;
 
   ComponentId nextComponentId;
 
