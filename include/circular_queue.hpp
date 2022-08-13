@@ -23,9 +23,9 @@ template <typename T, size_t N> struct CircularQueue {
 
   inline void enqueue(const T &value) {
     assert(not full());
-    end = loop_successor(end, N);
-    size += 1;
     elements[end] = value;
+    size += 1;
+    end = loop_successor(end, N);
   }
 
   inline void dequeue() {
