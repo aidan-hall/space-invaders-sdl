@@ -101,6 +101,7 @@ Context::~Context() {
   for (auto texture : textures) {
     SDL_DestroyTexture(texture);
   }
+  textures.clear();
 
   SDL_DestroyWindow(window);
   SDL_DestroyRenderer(renderer);
