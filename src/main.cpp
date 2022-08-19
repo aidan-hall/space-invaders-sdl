@@ -14,6 +14,7 @@
 #include <iostream>
 #include <queue>
 #include <random>
+#include <string>
 #include <tecs.hpp>
 #include <vector>
 
@@ -140,10 +141,24 @@ Entity makeBullet(Coordinator &ecs, Position initPos, Velocity initVel,
 
 enum class GameEvent {
   GameOver,
+  Scored,
   Win,
 };
 
 std::queue<GameEvent> events;
+#define SCORE_PREFIX "Score: "
+
+void updateScoreTexture(Coordinator &ecs, SDL::Context &sdl,
+                        Entity score_entity, uint32_t font_idx,
+                        uint32_t score) {
+  std::string text = SCORE_PREFIX;
+  text.append(std::to_string(score));
+  auto t = sdl.loadFromRenderedText(text, {255, 255, 255, 0}, font_idx);
+  auto& r = ecs.getComponent<RenderCopy>(score_entity);
+  r.texture = t.texture;
+  r.w = t.w;
+  r.h = t.h;
+}
 
 int main() {
   Coordinator ecs;
@@ -179,6 +194,14 @@ int main() {
   ecs.getComponent<HealthBar>(player) = {25.0};
   ecs.addComponent<CollisionBounds>(player);
   ecs.getComponent<CollisionBounds>(player) = {{16, 16}, 0x2 | 0x4};
+
+  // Add score text box.
+  Entity score_entity = ecs.newEntity();
+  ecs.addComponent<Position>(score_entity);
+  ecs.addComponent<RenderCopy>(score_entity);
+
+  updateScoreTexture(ecs, sdl, score_entity, 0, 0);
+  ecs.getComponent<Position>(score_entity) = {{sdl.windowDimensions.w/2, 20}};
 
   // Set up aliens.
 
@@ -383,6 +406,9 @@ int main() {
           if (ecs.hasComponent<Player>(e)) {
             events.push(GameEvent::GameOver);
           }
+          if (ecs.hasComponent<Alien>(e)) {
+            events.push(GameEvent::Scored);
+          }
         }
       }
     }
@@ -490,6 +516,7 @@ int main() {
 
   bool quit = false;
   uint64_t last_shot = 0;
+  uint32_t player_score = 0;
 
   while (!quit) {
 
@@ -545,6 +572,11 @@ int main() {
         break;
       case GameEvent::Win:
         std::cout << "State transition to win/menu screen or next level.\n";
+        break;
+      case GameEvent::Scored:
+        std::cout << "Score!\n";
+        player_score += 1;
+        updateScoreTexture(ecs, sdl, score_entity, 0, player_score);
         break;
       }
       events.pop();
