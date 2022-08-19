@@ -140,6 +140,7 @@ Entity makeBullet(Coordinator &ecs, Position initPos, Velocity initVel,
 
 enum class GameEvent {
   GameOver,
+  Win,
 };
 
 std::queue<GameEvent> events;
@@ -298,6 +299,10 @@ int main() {
           pos.y += ALIEN_DROP_DISTANCE;
           vel.x = -alien_speed;
         }
+      }
+
+      if (current_n_aliens == 0) {
+        events.push(GameEvent::Win);
       }
 
       alien_speed =
@@ -537,6 +542,9 @@ int main() {
       switch (events.front()) {
       case GameEvent::GameOver:
         quit = true;
+        break;
+      case GameEvent::Win:
+        std::cout << "State transition to win/menu screen or next level.\n";
         break;
       }
       events.pop();
