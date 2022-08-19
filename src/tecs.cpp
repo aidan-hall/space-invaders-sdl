@@ -50,7 +50,6 @@ void Coordinator::queueDestroyEntity(Entity e) {
 void Coordinator::destroyQueued() {
   while (!pendingDestructions.empty()) {
     Entity e = pendingDestructions.front();
-    std::cout << "Destroying: " << e << std::endl;
     pendingDestructions.dequeue();
     destroyEntity(e);
   }
