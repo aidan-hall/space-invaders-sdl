@@ -484,6 +484,8 @@ int main() {
   printf("ECS initialised\n");
 
   bool quit = false;
+  uint64_t last_shot = 0;
+
   while (!quit) {
 
     auto tick = SDL_GetTicks64();
@@ -496,8 +498,13 @@ int main() {
       case SDL_KEYDOWN: {
         switch (e.key.keysym.sym) {
         case SDLK_SPACE:
-          makeBullet(ecs, ecs.getComponent<Position>(player), {{0, -5}},
-                     bulletTexture, {{2, 4}, 0x1});
+          // Limit bullet firing to once every N milliseconds, and don't fire on
+          // key repeat.
+          if (e.key.repeat == 0 && tick > last_shot + 500) {
+            makeBullet(ecs, ecs.getComponent<Position>(player), {{0, -5}},
+                       bulletTexture, {{2, 4}, 0x1});
+            last_shot = tick;
+          }
           break;
         }
         break;
