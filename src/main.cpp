@@ -12,7 +12,6 @@
 #include <glm/geometric.hpp>
 #include <glm/glm.hpp>
 #include <iostream>
-#include <queue>
 #include <random>
 #include <string>
 #include <tecs.hpp>
@@ -139,7 +138,7 @@ enum class GameEvent {
   Win,
 };
 
-std::queue<GameEvent> events;
+std::vector<GameEvent> events;
 #define SCORE_PREFIX "Score: "
 
 void updateScoreTexture(Coordinator &ecs, SDL::Context &sdl,
@@ -319,7 +318,7 @@ int main() {
       }
 
       if (current_n_aliens == 0) {
-        events.push(GameEvent::Win);
+        events.push_back(GameEvent::Win);
       }
 
       alien_speed =
@@ -398,10 +397,10 @@ int main() {
         if (health.current <= 0.0) {
           ecs.queueDestroyEntity(e);
           if (ecs.hasComponent<Player>(e)) {
-            events.push(GameEvent::GameOver);
+            events.push_back(GameEvent::GameOver);
           }
           if (ecs.hasComponent<Alien>(e)) {
-            events.push(GameEvent::Scored);
+            events.push_back(GameEvent::Scored);
           }
         }
       }
@@ -455,7 +454,7 @@ int main() {
             ecs.getComponent<Health>(b).current -= 1.0;
             if ((aBounds.layer & bBounds.layer & LayerMask{0x4}) !=
                 LayerMask{0}) {
-              events.push(GameEvent::GameOver);
+              events.push_back(GameEvent::GameOver);
             }
           }
         }
@@ -479,7 +478,7 @@ int main() {
       SDL_RenderDrawLine(renderer, 0, border, screen_width, border);
       for (auto &e : aliens) {
         if (ecs.getComponent<Position>(e).p.y > border) {
-          events.push(GameEvent::GameOver);
+          events.push_back(GameEvent::GameOver);
         }
       }
     }
@@ -559,8 +558,8 @@ int main() {
     runSystem(deathSystem, ecs);
 
     // Process events
-    while (not events.empty()) {
-      switch (events.front()) {
+    for (const auto& event : events) {
+      switch (event) {
       case GameEvent::GameOver:
         quit = true;
         break;
@@ -573,8 +572,8 @@ int main() {
         updateScoreTexture(ecs, sdl, score_entity, 0, player_score);
         break;
       }
-      events.pop();
     }
+    events.clear();
 
     sdl.renderPresent();
 
