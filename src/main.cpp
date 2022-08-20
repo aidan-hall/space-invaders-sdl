@@ -7,6 +7,7 @@
 #include <SDL_render.h>
 #include <SDL_timer.h>
 #include <SDL_video.h>
+#include <SDL_mixer.h>
 #include <cstdint>
 #include <cstdio>
 #include <glm/geometric.hpp>
@@ -104,6 +105,10 @@ constexpr float ALIEN_SPEED_INCREMENT = 0.015;
 constexpr int32_t SCREEN_FPS = 60;
 constexpr int32_t SCREEN_TICKS_PER_FRAME = 1000 / SCREEN_FPS;
 
+// Sounds
+Mix_Chunk* sound_shoot = nullptr;
+Mix_Chunk* sound_explosion = nullptr;
+
 void makeStaticSprite(Entity entity, Coordinator &ecs, Position initPos,
                       SDL_Texture *texture) {
   ecs.addComponent<Position>(entity);
@@ -117,8 +122,10 @@ void makeStaticSprite(Entity entity, Coordinator &ecs, Position initPos,
   }
 }
 
+
 Entity makeBullet(Coordinator &ecs, Position initPos, Velocity initVel,
                   SDL_Texture *texture, const CollisionBounds &bounds) {
+  Mix_PlayChannel(-1, sound_shoot, 0);
   auto bullet = ecs.newEntity();
   makeStaticSprite(bullet, ecs, initPos, texture);
 
@@ -161,6 +168,13 @@ int main() {
                    SDL_WINDOW_SHOWN, {"fonts/GroovetasticRegular.ttf"});
 
   SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
+
+  sound_explosion = Mix_LoadWAV("sound/explosion.wav");
+  if (sound_explosion == nullptr)
+    SDL::Error(__FILE__, __LINE__);
+  sound_shoot = Mix_LoadWAV("sound/shoot.wav");
+  if (sound_shoot == nullptr)
+    SDL::Error(__FILE__, __LINE__);
 
   printf("SDL initialised\n");
 
@@ -452,6 +466,7 @@ int main() {
               ((aBounds.layer & bBounds.layer) != LayerMask{0})) {
             ecs.getComponent<Health>(a).current -= 1.0;
             ecs.getComponent<Health>(b).current -= 1.0;
+            Mix_PlayChannel(-1, sound_explosion, 0);
             if ((aBounds.layer & bBounds.layer & LayerMask{0x4}) !=
                 LayerMask{0}) {
               events.push_back(GameEvent::GameOver);
@@ -581,4 +596,7 @@ int main() {
 
     SDL_Delay(tick + SCREEN_TICKS_PER_FRAME - SDL_GetTicks64());
   }
+
+  Mix_FreeChunk(sound_explosion);
+  Mix_FreeChunk(sound_shoot);
 }
