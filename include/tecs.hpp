@@ -5,7 +5,6 @@
 #include <cassert>
 #include <concepts>
 #include <cstdint>
-#include <queue>
 #include <set>
 #include <tuple>
 #include <typeindex>
