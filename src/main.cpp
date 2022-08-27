@@ -98,7 +98,7 @@ constexpr float ALIEN_DROP_DISTANCE = 10.0;
 constexpr int ALIEN_ROWS = 4;
 constexpr int ALIEN_COLUMNS = 20;
 constexpr int INITIAL_N_ALIENS = ALIEN_ROWS * ALIEN_COLUMNS;
-constexpr float ALIEN_SPEED_INCREMENT = 0.015;
+constexpr float ALIEN_SPEED_INCREMENT = 0.03;
 
 // Framerate.
 
