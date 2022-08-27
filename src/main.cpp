@@ -315,10 +315,7 @@ int main() {
     SDL::Context *sdl;
     float alien_speed = ALIEN_INIT_SPEED;
     void run(const std::set<Entity> &entities, Coordinator &ecs) {
-      int current_n_aliens = 0;
       for (auto &e : entities) {
-        current_n_aliens += 1;
-
         auto &pos = ecs.getComponent<Position>(e).p;
         auto &vel = ecs.getComponent<Velocity>(e).v;
         const auto &start_x = ecs.getComponent<Alien>(e).start_x;
@@ -331,6 +328,7 @@ int main() {
         }
       }
 
+      const auto current_n_aliens = entities.size();
       if (current_n_aliens == 0) {
         events.push_back(GameEvent::Win);
       }
