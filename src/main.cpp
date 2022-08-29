@@ -3,11 +3,11 @@
 #include <SDL_events.h>
 #include <SDL_hints.h>
 #include <SDL_keyboard.h>
+#include <SDL_mixer.h>
 #include <SDL_rect.h>
 #include <SDL_render.h>
 #include <SDL_timer.h>
 #include <SDL_video.h>
-#include <SDL_mixer.h>
 #include <cstdint>
 #include <cstdio>
 #include <glm/geometric.hpp>
@@ -106,8 +106,8 @@ constexpr int32_t SCREEN_FPS = 60;
 constexpr int32_t SCREEN_TICKS_PER_FRAME = 1000 / SCREEN_FPS;
 
 // Sounds
-Mix_Chunk* sound_shoot = nullptr;
-Mix_Chunk* sound_explosion = nullptr;
+Mix_Chunk *sound_shoot = nullptr;
+Mix_Chunk *sound_explosion = nullptr;
 
 void makeStaticSprite(Entity entity, Coordinator &ecs, Position initPos,
                       SDL_Texture *texture) {
@@ -121,7 +121,6 @@ void makeStaticSprite(Entity entity, Coordinator &ecs, Position initPos,
     SDL_QueryTexture(rc.texture, nullptr, nullptr, &rc.w, &rc.h);
   }
 }
-
 
 Entity makeBullet(Coordinator &ecs, Position initPos, Velocity initVel,
                   SDL_Texture *texture, const CollisionBounds &bounds) {
@@ -154,7 +153,7 @@ void updateScoreTexture(Coordinator &ecs, SDL::Context &sdl,
   std::string text = SCORE_PREFIX;
   text.append(std::to_string(score));
   auto t = sdl.loadFromRenderedText(text, {255, 255, 255, 0}, font_idx);
-  auto& r = ecs.getComponent<RenderCopy>(score_entity);
+  auto &r = ecs.getComponent<RenderCopy>(score_entity);
   r.texture = t.texture;
   r.w = t.w;
   r.h = t.h;
@@ -208,7 +207,7 @@ int main() {
   ecs.addComponent<RenderCopy>(score_entity);
 
   updateScoreTexture(ecs, sdl, score_entity, 0, 0);
-  ecs.getComponent<Position>(score_entity) = {{sdl.windowDimensions.w/2, 20}};
+  ecs.getComponent<Position>(score_entity) = {{sdl.windowDimensions.w / 2, 20}};
 
   // Set up aliens.
 
@@ -263,8 +262,8 @@ int main() {
     using System::System;
     void run(const std::set<Entity> &entities, Coordinator &ecs) {
       for (auto &e : entities) {
-        auto &pos = ecs.getComponent<Position>(e).p;
-        const auto &vel = ecs.getComponent<Velocity>(e).v;
+        auto &[pos] = ecs.getComponent<Position>(e);
+        const auto &[vel] = ecs.getComponent<Velocity>(e);
         pos += vel;
       }
     }
@@ -280,7 +279,7 @@ int main() {
       constexpr float PLAYER_MAX_SPEED_SQUARED =
           PLAYER_MAX_SPEED * PLAYER_MAX_SPEED;
       for (auto &e : entities) {
-        auto &velocity = ecs.getComponent<Velocity>(e).v;
+        auto &[velocity] = ecs.getComponent<Velocity>(e);
         if (keyboardState[SDL_SCANCODE_LEFT]) {
           velocity.x -= 0.2;
         } else if (keyboardState[SDL_SCANCODE_RIGHT]) {
@@ -316,9 +315,9 @@ int main() {
     float alien_speed = ALIEN_INIT_SPEED;
     void run(const std::set<Entity> &entities, Coordinator &ecs) {
       for (auto &e : entities) {
-        auto &pos = ecs.getComponent<Position>(e).p;
-        auto &vel = ecs.getComponent<Velocity>(e).v;
-        const auto &start_x = ecs.getComponent<Alien>(e).start_x;
+        auto &[pos] = ecs.getComponent<Position>(e);
+        auto &[vel] = ecs.getComponent<Velocity>(e);
+        const auto &[start_x] = ecs.getComponent<Alien>(e);
         if (pos.x < start_x) {
           pos.y += ALIEN_DROP_DISTANCE;
           vel.x = alien_speed;
@@ -349,11 +348,11 @@ int main() {
 
     void run(const std::set<Entity> &entities, Coordinator &ecs) {
       for (auto &e : entities) {
-        const auto &pos = ecs.getComponent<Position>(e).p;
-        const auto &rc = ecs.getComponent<RenderCopy>(e);
-        const SDL_Rect renderRect = {(int)pos.x - rc.w / 2,
-                                     (int)pos.y - rc.h / 2, rc.w, rc.h};
-        SDL_RenderCopy(renderer, rc.texture, nullptr, &renderRect);
+        const auto &[pos] = ecs.getComponent<Position>(e);
+        const auto &[texture, w, h] = ecs.getComponent<RenderCopy>(e);
+        const SDL_Rect renderRect = {(int)pos.x - w / 2, (int)pos.y - h / 2, w,
+                                     h};
+        SDL_RenderCopy(renderer, texture, nullptr, &renderRect);
       }
     }
 
@@ -379,7 +378,7 @@ int main() {
       empty_bar.h = BAR_HEIGHT;
       current_bar.h = BAR_HEIGHT;
       for (auto &e : entities) {
-        const auto &pos = ecs.getComponent<Position>(e).p;
+        const auto &[pos] = ecs.getComponent<Position>(e);
         const auto &health = ecs.getComponent<Health>(e);
         const auto &bar = ecs.getComponent<HealthBar>(e);
         empty_bar.y = current_bar.y = pos.y + bar.hover_distance - BAR_HEIGHT;
@@ -452,6 +451,7 @@ int main() {
       for (auto &a : entities) {
         const auto &aPos = ecs.getComponent<Position>(a);
         const auto &aBounds = ecs.getComponent<CollisionBounds>(a);
+        auto &aHealth = ecs.getComponent<Health>(a);
         for (auto &b : entities) {
           if (b == a) {
             break;
@@ -462,7 +462,7 @@ int main() {
           if ((rectangleIntersection(aBounds.rectangle(aPos),
                                      bBounds.rectangle(bPos))) &&
               ((aBounds.layer & bBounds.layer) != LayerMask{0})) {
-            ecs.getComponent<Health>(a).current -= 1.0;
+            aHealth.current -= 1.0;
             ecs.getComponent<Health>(b).current -= 1.0;
             Mix_PlayChannel(-1, sound_explosion, 0);
             if ((aBounds.layer & bBounds.layer & LayerMask{0x4}) !=
@@ -571,7 +571,7 @@ int main() {
     runSystem(deathSystem, ecs);
 
     // Process events
-    for (const auto& event : events) {
+    for (const auto &event : events) {
       switch (event) {
       case GameEvent::GameOver:
         quit = true;
