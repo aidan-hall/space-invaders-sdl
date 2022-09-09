@@ -115,7 +115,10 @@ struct Coordinator {
   ComponentId registerComponent(const std::type_index &typeIndex);
 
   template <typename Component> inline ComponentId registerComponent() {
-    return registerComponent(std::type_index(typeid(Component)));
+    const auto id = registerComponent(std::type_index(typeid(Component)));
+    // Static method-local variables might not be instance-local: Remove previous data.
+    getComponents<Component>().clear();
+    return id;
   }
 
   template <typename Component> inline ComponentId componentId() {
