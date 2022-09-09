@@ -12,7 +12,7 @@ inline constexpr size_t loop_successor(const size_t x, const size_t len) {
 }
 
 template <typename T, size_t N> struct CircularQueue {
-  T elements[N];
+  T elements[N] = {};
   size_t start = 0; // Index of the first element.
   size_t end = 0;   // Index after the last element.
   size_t size = 0;  // Number of elements in the queue.
