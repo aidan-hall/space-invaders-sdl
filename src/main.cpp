@@ -144,6 +144,7 @@ enum class GameEvent {
   Quit, // Called when player closes window.
   Scored,
   Win,
+  Progress, // Go to the next scene
 };
 
 std::vector<GameEvent> events;
@@ -177,6 +178,49 @@ struct RenderCopySystem : System {
     this->renderer = theRenderer;
   }
 };
+
+GameEvent title_screen(SDL::Context &sdl, const std::string &subtitle) {
+  SDL::TextTexture titleText =
+      sdl.loadFromRenderedText("Space Invaders", {255, 255, 255, 0}, 0);
+  const SDL_Rect titleRect = {(sdl.windowDimensions.w - titleText.w) / 2, 200,
+                              titleText.w, titleText.h};
+  SDL::TextTexture controlsText =
+      sdl.loadFromRenderedText("Press Space to begin", {255, 255, 255, 0}, 0);
+  const SDL_Rect controlsRect = {(sdl.windowDimensions.w - controlsText.w) / 2,
+                                 300, controlsText.w, controlsText.h};
+  SDL::TextTexture subTitleText =
+      sdl.loadFromRenderedText(subtitle, {255, 255, 255, 0}, 0);
+  const SDL_Rect subTitleRect = {(sdl.windowDimensions.w - subTitleText.w) / 2,
+                                 400, subTitleText.w, subTitleText.h};
+  bool finished = false;
+  while (!finished) {
+    SDL_Event e;
+    while (SDL_PollEvent(&e)) {
+      switch ((SDL_EventType)e.type) {
+      case SDL_QUIT:
+        return GameEvent::Quit;
+        break;
+      case SDL_KEYDOWN:
+        if (e.key.keysym.sym == SDLK_SPACE) {
+          finished = true;
+        }
+        break;
+      default:
+        break;
+      }
+    }
+
+    sdl.setRenderDrawColor(0x000000);
+    sdl.renderClear();
+
+    SDL_RenderCopy(sdl.renderer, titleText.texture, nullptr, &titleRect);
+    SDL_RenderCopy(sdl.renderer, subTitleText.texture, nullptr, &subTitleRect);
+    SDL_RenderCopy(sdl.renderer, controlsText.texture, nullptr, &controlsRect);
+    sdl.renderPresent();
+  }
+
+  return GameEvent::Progress;
+}
 
 GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
                    const int alien_columns) {
@@ -402,6 +446,8 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
         auto &health = ecs.getComponent<Health>(e);
         if (health.current <= 0.0) {
           ecs.queueDestroyEntity(e);
+          Mix_PlayChannel(-1, sound_explosion, 0);
+
           if (ecs.hasComponent<Player>(e)) {
             events.push_back(GameEvent::GameOver);
           }
@@ -459,7 +505,6 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
               ((aBounds.layer & bBounds.layer) != LayerMask{0})) {
             aHealth.current -= 1.0;
             ecs.getComponent<Health>(b).current -= 1.0;
-            Mix_PlayChannel(-1, sound_explosion, 0);
             if ((aBounds.layer & bBounds.layer & LayerMask{0x4}) !=
                 LayerMask{0}) {
               events.push_back(GameEvent::GameOver);
@@ -583,6 +628,8 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
       case GameEvent::Quit:
         quit = true;
         break;
+      case GameEvent::Progress:
+        break;
       }
     }
     events.clear();
@@ -618,12 +665,20 @@ int main() {
 
   GameEvent res = GameEvent::Win;
 
-  int rows = ALIEN_ROWS;
+  title_screen(sdl, "Space to shoot; Arrow Keys to move.");
+
+  int level = 0;
+
   while (res != GameEvent::Quit) {
-    res = gameplay(sdl, rows, ALIEN_COLUMNS);
+    res = gameplay(sdl, ALIEN_ROWS + level, ALIEN_COLUMNS);
     std::cout << "restarting\n";
-    if (res == GameEvent::Win)
-      rows += 1;
+    if (res == GameEvent::Win) {
+      level += 1;
+      title_screen(sdl, "Finished Level: " + std::to_string(level));
+    } else if (res == GameEvent::GameOver) {
+      title_screen(sdl, "Game Over");
+      level = 0;
+    }
   }
 
   Mix_FreeChunk(sound_explosion);
