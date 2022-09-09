@@ -619,10 +619,11 @@ int main() {
   GameEvent res = GameEvent::Win;
 
   int rows = ALIEN_ROWS;
-  while (res == GameEvent::Win) {
+  while (res != GameEvent::Quit) {
     res = gameplay(sdl, rows, ALIEN_COLUMNS);
     std::cout << "restarting\n";
-    rows += 1;
+    if (res == GameEvent::Win)
+      rows += 1;
   }
 
   Mix_FreeChunk(sound_explosion);
