@@ -1,6 +1,7 @@
 #include "sdl.hpp"
 #include <SDL.h>
 #include <SDL_events.h>
+#include <SDL_filesystem.h>
 #include <SDL_hints.h>
 #include <SDL_keyboard.h>
 #include <SDL_mixer.h>
@@ -683,6 +684,17 @@ int main() {
                    {SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720},
                    SDL_WINDOW_SHOWN, {"fonts/GroovetasticRegular.ttf"});
 
+  const std::string preferences_path = SDL_GetPrefPath("AidanGames", "Space Invaders SDL");
+  const auto high_scores_filename = preferences_path + "/high_scores";
+  {
+    FILE *high_scores_file = std::fopen(high_scores_filename.c_str(), "rb");
+    if (high_scores_file != nullptr) {
+      std::fread(&high_scores[0], sizeof(decltype(high_scores[0])), high_scores.size(), high_scores_file);
+      std::fclose(high_scores_file);
+    }
+  }
+  
+
   SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
 
   sound_explosion = Mix_LoadWAV("sound/explosion.wav");
@@ -714,6 +726,16 @@ int main() {
     } else if (res == GameEvent::GameOver) {
       title_screen(sdl, "Game Over");
       level = 1;
+      player_score = 0;
+    }
+  }
+
+  // Attempt to write the high scores back to the file.
+  {
+    FILE *high_scores_file = std::fopen(high_scores_filename.c_str(), "wb");
+    if (high_scores_file != nullptr) {
+      std::fwrite(&high_scores[0], sizeof(decltype(high_scores[0])), high_scores.size(), high_scores_file);
+      std::fclose(high_scores_file);
     }
   }
 
