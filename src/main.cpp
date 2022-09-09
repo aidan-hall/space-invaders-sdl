@@ -8,12 +8,15 @@
 #include <SDL_render.h>
 #include <SDL_timer.h>
 #include <SDL_video.h>
+#include <algorithm>
+#include <array>
 #include <cstdint>
 #include <cstdio>
 #include <glm/geometric.hpp>
 #include <glm/glm.hpp>
 #include <iostream>
 #include <random>
+#include <ranges>
 #include <string>
 #include <tecs.hpp>
 #include <vector>
@@ -110,6 +113,10 @@ Mix_Chunk *sound_explosion = nullptr;
 SDL_Texture *alien_texture = nullptr;
 SDL_Texture *player_texture = nullptr;
 
+// Scores
+uint32_t player_score = 0;
+std::array<uint32_t, 5> high_scores = {0, 0, 0, 0, 0};
+
 void makeStaticSprite(Entity entity, Coordinator &ecs, Position initPos,
                       SDL_Texture *texture) {
   ecs.addComponent<Position>(entity);
@@ -187,11 +194,23 @@ GameEvent title_screen(SDL::Context &sdl, const std::string &subtitle) {
   SDL::TextTexture controlsText =
       sdl.loadFromRenderedText("Press Space to begin", {255, 255, 255, 0}, 0);
   const SDL_Rect controlsRect = {(sdl.windowDimensions.w - controlsText.w) / 2,
-                                 300, controlsText.w, controlsText.h};
+                                 250, controlsText.w, controlsText.h};
   SDL::TextTexture subTitleText =
       sdl.loadFromRenderedText(subtitle, {255, 255, 255, 0}, 0);
   const SDL_Rect subTitleRect = {(sdl.windowDimensions.w - subTitleText.w) / 2,
-                                 400, subTitleText.w, subTitleText.h};
+                                 300, subTitleText.w, subTitleText.h};
+  auto comma_fold = [](const std::string &text, uint32_t score) {
+    return text + ", " + std::to_string(score);
+  };
+  std::string high_scores_string = std::accumulate(
+      std::next(high_scores.begin()), high_scores.end(),
+      "High Scores: " + std::to_string(high_scores.front()), comma_fold);
+
+  SDL::TextTexture highScoreText =
+      sdl.loadFromRenderedText(high_scores_string, {255, 255, 255, 0}, 0);
+  const SDL_Rect highScoreRect = {(sdl.windowDimensions.w - highScoreText.w) /
+                                      2,
+                                  350, highScoreText.w, highScoreText.h};
   bool finished = false;
   while (!finished) {
     SDL_Event e;
@@ -216,6 +235,8 @@ GameEvent title_screen(SDL::Context &sdl, const std::string &subtitle) {
     SDL_RenderCopy(sdl.renderer, titleText.texture, nullptr, &titleRect);
     SDL_RenderCopy(sdl.renderer, subTitleText.texture, nullptr, &subTitleRect);
     SDL_RenderCopy(sdl.renderer, controlsText.texture, nullptr, &controlsRect);
+    SDL_RenderCopy(sdl.renderer, highScoreText.texture, nullptr,
+                   &highScoreRect);
     sdl.renderPresent();
   }
 
@@ -572,7 +593,7 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
   printf("ECS initialised\n");
 
   uint64_t last_shot = 0;
-  uint32_t player_score = 0;
+  player_score = 0;
 
   bool quit = false;
 
@@ -683,7 +704,10 @@ int main() {
   while (res != GameEvent::Quit) {
     // Level starts at 1 but ALIEN_ROWS should apply to level 1.
     res = gameplay(sdl, ALIEN_ROWS - 1 + level, ALIEN_COLUMNS, level);
-    std::cout << "restarting\n";
+    if (player_score > high_scores.back()) {
+      high_scores.back() = player_score;
+      std::ranges::sort(high_scores, std::greater<>());
+    }
     if (res == GameEvent::Win) {
       title_screen(sdl, "Finished Level: " + std::to_string(level));
       level += 1;
