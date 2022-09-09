@@ -223,7 +223,7 @@ GameEvent title_screen(SDL::Context &sdl, const std::string &subtitle) {
 }
 
 GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
-                   const int alien_columns) {
+                   const int alien_columns, const int level) {
 
   events.clear();
 
@@ -255,6 +255,17 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
   ecs.getComponent<HealthBar>(player) = {25.0};
   ecs.addComponent<CollisionBounds>(player);
   ecs.getComponent<CollisionBounds>(player) = {{32, 16}, 0x2 | 0x4};
+
+  // Add level text box.
+  Entity level_text_entity = ecs.newEntity();
+  ecs.addComponent<RenderCopy>(level_text_entity);
+  updateTextTexture(ecs, sdl, level_text_entity, 0,
+                    "Level: " + std::to_string(level));
+  ecs.addComponent<Position>(level_text_entity);
+  {
+    const auto &[_t, w, h] = ecs.getComponent<RenderCopy>(level_text_entity);
+    ecs.getComponent<Position>(level_text_entity) = {{w / 2 + 5, h / 2 + 5}};
+  }
 
   // Add score text box.
   Entity score_entity = ecs.newEntity();
@@ -667,17 +678,18 @@ int main() {
 
   title_screen(sdl, "Space to shoot; Arrow Keys to move.");
 
-  int level = 0;
+  int level = 1;
 
   while (res != GameEvent::Quit) {
-    res = gameplay(sdl, ALIEN_ROWS + level, ALIEN_COLUMNS);
+    // Level starts at 1 but ALIEN_ROWS should apply to level 1.
+    res = gameplay(sdl, ALIEN_ROWS - 1 + level, ALIEN_COLUMNS, level);
     std::cout << "restarting\n";
     if (res == GameEvent::Win) {
-      level += 1;
       title_screen(sdl, "Finished Level: " + std::to_string(level));
+      level += 1;
     } else if (res == GameEvent::GameOver) {
       title_screen(sdl, "Game Over");
-      level = 0;
+      level = 1;
     }
   }
 
