@@ -97,7 +97,6 @@ constexpr float ALIEN_SHUFFLE_DISTANCE = 200.0;
 constexpr float ALIEN_DROP_DISTANCE = 10.0;
 constexpr int ALIEN_ROWS = 4;
 constexpr int ALIEN_COLUMNS = 20;
-constexpr int INITIAL_N_ALIENS = ALIEN_ROWS * ALIEN_COLUMNS;
 constexpr float ALIEN_SPEED_INCREMENT = 0.03;
 
 // Framerate.
@@ -108,6 +107,8 @@ constexpr int32_t SCREEN_TICKS_PER_FRAME = 1000 / SCREEN_FPS;
 // Sounds
 Mix_Chunk *sound_shoot = nullptr;
 Mix_Chunk *sound_explosion = nullptr;
+SDL_Texture *alien_texture = nullptr;
+SDL_Texture *player_texture = nullptr;
 
 void makeStaticSprite(Entity entity, Coordinator &ecs, Position initPos,
                       SDL_Texture *texture) {
@@ -140,6 +141,7 @@ Entity makeBullet(Coordinator &ecs, Position initPos, Velocity initVel,
 
 enum class GameEvent {
   GameOver,
+  Quit, // Called when player closes window.
   Scored,
   Win,
 };
@@ -147,11 +149,8 @@ enum class GameEvent {
 std::vector<GameEvent> events;
 #define SCORE_PREFIX "Score: "
 
-void updateScoreTexture(Coordinator &ecs, SDL::Context &sdl,
-                        Entity score_entity, uint32_t font_idx,
-                        uint32_t score) {
-  std::string text = SCORE_PREFIX;
-  text.append(std::to_string(score));
+void updateTextTexture(Coordinator &ecs, SDL::Context &sdl, Entity score_entity,
+                       uint32_t font_idx, const std::string &text) {
   auto t = sdl.loadFromRenderedText(text, {255, 255, 255, 0}, font_idx);
   auto &r = ecs.getComponent<RenderCopy>(score_entity);
   r.texture = t.texture;
@@ -159,23 +158,12 @@ void updateScoreTexture(Coordinator &ecs, SDL::Context &sdl,
   r.h = t.h;
 }
 
-int main() {
+GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
+                   const int alien_columns) {
+
+  events.clear();
+
   Coordinator ecs;
-
-  SDL::Context sdl(SDL_INIT_VIDEO, "Space Invaders",
-                   {SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720},
-                   SDL_WINDOW_SHOWN, {"fonts/GroovetasticRegular.ttf"});
-
-  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
-
-  sound_explosion = Mix_LoadWAV("sound/explosion.wav");
-  if (sound_explosion == nullptr)
-    SDL::Error(__FILE__, __LINE__);
-  sound_shoot = Mix_LoadWAV("sound/shoot.wav");
-  if (sound_shoot == nullptr)
-    SDL::Error(__FILE__, __LINE__);
-
-  printf("SDL initialised\n");
 
   const auto POSITION_COMPONENT = ecs.registerComponent<Position>();
   const auto RENDERCOPY_COMPONENT = ecs.registerComponent<RenderCopy>();
@@ -191,9 +179,10 @@ int main() {
   auto player = ecs.newEntity();
   makeStaticSprite(player, ecs,
                    {{sdl.windowDimensions.w / 2, sdl.windowDimensions.h - 40}},
-                   sdl.loadTexture("art/player.png"));
+                   player_texture);
 
   ecs.getComponent<RenderCopy>(player).w *= 2;
+
   ecs.addComponent<Velocity>(player);
   ecs.addComponent<Player>(player);
   ecs.addComponent<Health>(player);
@@ -208,18 +197,18 @@ int main() {
   ecs.addComponent<Position>(score_entity);
   ecs.addComponent<RenderCopy>(score_entity);
 
-  updateScoreTexture(ecs, sdl, score_entity, 0, 0);
+  updateTextTexture(ecs, sdl, score_entity, 0, SCORE_PREFIX "0");
   ecs.getComponent<Position>(score_entity) = {{sdl.windowDimensions.w / 2, 20}};
 
   // Set up aliens.
 
-  auto alienTexture = sdl.loadTexture("art/alien1.png");
+  alien_texture = sdl.loadTexture("art/alien1.png");
   std::vector<Entity> aliens;
-  for (int j = 1; j <= ALIEN_ROWS; ++j) {
-    for (int i = 1; i <= ALIEN_COLUMNS; ++i) {
+  for (int j = 1; j <= alien_rows; ++j) {
+    for (int i = 1; i <= alien_columns; ++i) {
       auto alien = ecs.newEntity();
       glm::vec2 pos = {i * 50 + j * 2, j * 60};
-      makeStaticSprite(alien, ecs, {{pos.x + j * 20, pos.y}}, alienTexture);
+      makeStaticSprite(alien, ecs, {{pos.x + j * 20, pos.y}}, alien_texture);
       ecs.addComponent<Alien>(alien);
       ecs.getComponent<Alien>(alien).start_x = pos.x;
       // Off-sets the rows.
@@ -315,6 +304,7 @@ int main() {
     using System::System;
     SDL::Context *sdl;
     float alien_speed = ALIEN_INIT_SPEED;
+    int initial_n_aliens;
     void run(const std::set<Entity> &entities, Coordinator &ecs) {
       for (auto &e : entities) {
         auto &[pos] = ecs.getComponent<Position>(e);
@@ -336,13 +326,14 @@ int main() {
 
       alien_speed =
           ALIEN_INIT_SPEED +
-          ALIEN_SPEED_INCREMENT * (INITIAL_N_ALIENS - current_n_aliens);
+          ALIEN_SPEED_INCREMENT * (initial_n_aliens - current_n_aliens);
     }
   } alienMovementSystem(
       componentsSignature(
           {ALIEN_COMPONENT, POSITION_COMPONENT, VELOCITY_COMPONENT}),
       ecs);
   alienMovementSystem.sdl = &sdl;
+  alienMovementSystem.initial_n_aliens = alien_rows * alien_columns;
 
   // A system that simply calls SDL_RenderCopy().
   struct RenderCopySystem : System {
@@ -522,9 +513,10 @@ int main() {
 
   printf("ECS initialised\n");
 
-  bool quit = false;
   uint64_t last_shot = 0;
   uint32_t player_score = 0;
+
+  bool quit = false;
 
   while (!quit) {
 
@@ -533,7 +525,7 @@ int main() {
     while (SDL_PollEvent(&e)) {
       switch ((SDL_EventType)e.type) {
       case SDL_QUIT:
-        quit = true;
+        return GameEvent::Quit;
         break;
       case SDL_KEYDOWN: {
         switch (e.key.keysym.sym) {
@@ -576,15 +568,18 @@ int main() {
     for (const auto &event : events) {
       switch (event) {
       case GameEvent::GameOver:
-        quit = true;
-        break;
+        ecs.destroyQueued();
+        return GameEvent::GameOver;
       case GameEvent::Win:
-        std::cout << "State transition to win/menu screen or next level.\n";
-        break;
+        return GameEvent::Win;
       case GameEvent::Scored:
         std::cout << "Score!\n";
         player_score += 1;
-        updateScoreTexture(ecs, sdl, score_entity, 0, player_score);
+        updateTextTexture(ecs, sdl, score_entity, 0,
+                          SCORE_PREFIX + std::to_string(player_score));
+        break;
+      case GameEvent::Quit:
+        quit = true;
         break;
       }
     }
@@ -594,7 +589,38 @@ int main() {
 
     ecs.destroyQueued();
 
-    SDL_Delay(tick + SCREEN_TICKS_PER_FRAME - SDL_GetTicks64());
+    while (SDL_GetTicks64() < tick + SCREEN_TICKS_PER_FRAME)
+      ;
+    // SDL_Delay(tick + SCREEN_TICKS_PER_FRAME - SDL_GetTicks64());
+  }
+
+  return GameEvent::Quit;
+}
+
+int main() {
+  SDL::Context sdl(SDL_INIT_VIDEO, "Space Invaders",
+                   {SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720},
+                   SDL_WINDOW_SHOWN, {"fonts/GroovetasticRegular.ttf"});
+
+  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
+
+  sound_explosion = Mix_LoadWAV("sound/explosion.wav");
+  if (sound_explosion == nullptr)
+    SDL::Error(__FILE__, __LINE__);
+  sound_shoot = Mix_LoadWAV("sound/shoot.wav");
+  if (sound_shoot == nullptr)
+    SDL::Error(__FILE__, __LINE__);
+
+  printf("SDL initialised\n");
+  player_texture = sdl.loadTexture("art/player.png");
+
+  GameEvent res = GameEvent::Win;
+
+  int rows = ALIEN_ROWS;
+  while (res == GameEvent::Win) {
+    res = gameplay(sdl, rows, ALIEN_COLUMNS);
+    std::cout << "restarting\n";
+    rows += 1;
   }
 
   Mix_FreeChunk(sound_explosion);
