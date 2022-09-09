@@ -158,6 +158,26 @@ void updateTextTexture(Coordinator &ecs, SDL::Context &sdl, Entity score_entity,
   r.h = t.h;
 }
 
+struct RenderCopySystem : System {
+  SDL_Renderer *renderer = nullptr;
+
+  void run(const std::set<Entity> &entities, Coordinator &ecs) {
+    for (auto &e : entities) {
+      const auto &[pos] = ecs.getComponent<Position>(e);
+      const auto &[texture, w, h] = ecs.getComponent<RenderCopy>(e);
+      const SDL_Rect renderRect = {(int)pos.x - w / 2, (int)pos.y - h / 2, w,
+                                   h};
+      SDL_RenderCopy(renderer, texture, nullptr, &renderRect);
+    }
+  }
+
+  RenderCopySystem(const Signature &sig, Coordinator &coord,
+                   SDL_Renderer *theRenderer)
+      : System(sig, coord) {
+    this->renderer = theRenderer;
+  }
+};
+
 GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
                    const int alien_columns) {
 
@@ -336,25 +356,7 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
   alienMovementSystem.initial_n_aliens = alien_rows * alien_columns;
 
   // A system that simply calls SDL_RenderCopy().
-  struct RenderCopySystem : System {
-    SDL_Renderer *renderer = nullptr;
-
-    void run(const std::set<Entity> &entities, Coordinator &ecs) {
-      for (auto &e : entities) {
-        const auto &[pos] = ecs.getComponent<Position>(e);
-        const auto &[texture, w, h] = ecs.getComponent<RenderCopy>(e);
-        const SDL_Rect renderRect = {(int)pos.x - w / 2, (int)pos.y - h / 2, w,
-                                     h};
-        SDL_RenderCopy(renderer, texture, nullptr, &renderRect);
-      }
-    }
-
-    RenderCopySystem(const Signature &sig, Coordinator &coord,
-                     SDL_Renderer *theRenderer)
-        : System(sig, coord) {
-      this->renderer = theRenderer;
-    }
-  } renderCopySystem(
+  RenderCopySystem renderCopySystem(
       componentsSignature({POSITION_COMPONENT, RENDERCOPY_COMPONENT}), ecs,
       sdl.renderer);
 
