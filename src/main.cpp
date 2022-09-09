@@ -192,6 +192,8 @@ int main() {
   makeStaticSprite(player, ecs,
                    {{sdl.windowDimensions.w / 2, sdl.windowDimensions.h - 40}},
                    sdl.loadTexture("art/player.png"));
+
+  ecs.getComponent<RenderCopy>(player).w *= 2;
   ecs.addComponent<Velocity>(player);
   ecs.addComponent<Player>(player);
   ecs.addComponent<Health>(player);
@@ -199,7 +201,7 @@ int main() {
   ecs.addComponent<HealthBar>(player);
   ecs.getComponent<HealthBar>(player) = {25.0};
   ecs.addComponent<CollisionBounds>(player);
-  ecs.getComponent<CollisionBounds>(player) = {{16, 16}, 0x2 | 0x4};
+  ecs.getComponent<CollisionBounds>(player) = {{32, 16}, 0x2 | 0x4};
 
   // Add score text box.
   Entity score_entity = ecs.newEntity();
