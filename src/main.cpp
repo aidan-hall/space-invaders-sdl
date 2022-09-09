@@ -425,7 +425,7 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
         // Generate a binomially distributed random number indicating how many
         // aliens to go along before firing.
         if (nextFire <= 0) {
-          makeBullet(ecs, ecs.getComponent<Position>(e), {{0, 3}}, enemyBullet,
+          makeBullet(ecs, ecs.getComponent<Position>(e), {{0, 6}}, enemyBullet,
                      {{2, 4}, 0x2});
           nextFire = firing(gen);
         } else {
@@ -535,7 +535,7 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
           // Limit bullet firing to once every N milliseconds, and don't fire on
           // key repeat.
           if (e.key.repeat == 0 && tick > last_shot + 500) {
-            makeBullet(ecs, ecs.getComponent<Position>(player), {{0, -5}},
+            makeBullet(ecs, ecs.getComponent<Position>(player), {{0, -8}},
                        bulletTexture, {{2, 4}, 0x1});
             last_shot = tick;
           }
