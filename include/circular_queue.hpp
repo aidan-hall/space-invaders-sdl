@@ -3,7 +3,7 @@
 
 #include <cstddef>
 
-namespace Unusual {
+namespace unusual {
 // The successor of 'x' in a 'looping' ascending sequence, length 'len'.
 // E.g. loop_successor(0, 5) = 1, loop_successor(4, 5) = 0
 inline constexpr size_t loop_successor(const size_t x, const size_t len) {
@@ -11,7 +11,7 @@ inline constexpr size_t loop_successor(const size_t x, const size_t len) {
   return (succ >= len) ? succ - len : succ;
 }
 
-template <typename T, size_t N> struct CircularQueue {
+template <typename T, size_t N> struct circular_queue {
   T elements[N] = {};
   size_t start = 0; // Index of the first element.
   size_t end = 0;   // Index after the last element.

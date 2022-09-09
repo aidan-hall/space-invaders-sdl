@@ -88,8 +88,8 @@ struct Coordinator {
   std::unordered_map<std::type_index, ComponentId> componentIds;
 
   Entity nextEntity = 0;
-  Unusual::CircularQueue<Entity, 200> recycledEntities;
-  Unusual::CircularQueue<Entity, 5> pendingDestructions;
+  unusual::circular_queue<Entity, 200> recycledEntities;
+  unusual::circular_queue<Entity, 5> pendingDestructions;
 
   ComponentId nextComponentId;
 
