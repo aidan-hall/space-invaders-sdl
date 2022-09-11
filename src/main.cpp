@@ -684,16 +684,17 @@ int main() {
                    {SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720},
                    SDL_WINDOW_SHOWN, {"fonts/GroovetasticRegular.ttf"});
 
-  const std::string preferences_path = SDL_GetPrefPath("AidanGames", "Space Invaders SDL");
+  const std::string preferences_path =
+      SDL_GetPrefPath("AidanGames", "Space Invaders SDL");
   const auto high_scores_filename = preferences_path + "/high_scores";
   {
     FILE *high_scores_file = std::fopen(high_scores_filename.c_str(), "rb");
     if (high_scores_file != nullptr) {
-      std::fread(&high_scores[0], sizeof(decltype(high_scores[0])), high_scores.size(), high_scores_file);
+      std::fread(&high_scores[0], sizeof(decltype(high_scores[0])),
+                 high_scores.size(), high_scores_file);
       std::fclose(high_scores_file);
     }
   }
-  
 
   SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
 
@@ -734,7 +735,8 @@ int main() {
   {
     FILE *high_scores_file = std::fopen(high_scores_filename.c_str(), "wb");
     if (high_scores_file != nullptr) {
-      std::fwrite(&high_scores[0], sizeof(decltype(high_scores[0])), high_scores.size(), high_scores_file);
+      std::fwrite(&high_scores[0], sizeof(decltype(high_scores[0])),
+                  high_scores.size(), high_scores_file);
       std::fclose(high_scores_file);
     }
   }
