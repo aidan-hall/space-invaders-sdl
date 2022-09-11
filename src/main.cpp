@@ -675,9 +675,7 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
 
     ecs.destroyQueued();
 
-    while (SDL_GetTicks64() < tick + SCREEN_TICKS_PER_FRAME)
-      ;
-    // SDL_Delay(tick + SCREEN_TICKS_PER_FRAME - SDL_GetTicks64());
+    SDL_Delay(tick + SCREEN_TICKS_PER_FRAME - SDL_GetTicks64());
   }
 
   return GameEvent::Quit;
