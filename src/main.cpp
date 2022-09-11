@@ -20,6 +20,7 @@
 #include <ranges>
 #include <string>
 #include <tecs.hpp>
+#include <tuple>
 #include <vector>
 
 using namespace Tecs;
@@ -188,30 +189,34 @@ struct RenderCopySystem : System {
 };
 
 GameEvent title_screen(SDL::Context &sdl, const std::string &subtitle) {
-  SDL::TextTexture titleText =
-      sdl.loadFromRenderedText("Space Invaders", {255, 255, 255, 0}, 0);
-  const SDL_Rect titleRect = {(sdl.windowDimensions.w - titleText.w) / 2, 200,
-                              titleText.w, titleText.h};
-  SDL::TextTexture controlsText =
-      sdl.loadFromRenderedText("Press Space to begin", {255, 255, 255, 0}, 0);
-  const SDL_Rect controlsRect = {(sdl.windowDimensions.w - controlsText.w) / 2,
-                                 250, controlsText.w, controlsText.h};
-  SDL::TextTexture subTitleText =
-      sdl.loadFromRenderedText(subtitle, {255, 255, 255, 0}, 0);
-  const SDL_Rect subTitleRect = {(sdl.windowDimensions.w - subTitleText.w) / 2,
-                                 300, subTitleText.w, subTitleText.h};
-  auto comma_fold = [](const std::string &text, uint32_t score) {
-    return text + ", " + std::to_string(score);
-  };
-  std::string high_scores_string = std::accumulate(
-      std::next(high_scores.begin()), high_scores.end(),
-      "High Scores: " + std::to_string(high_scores.front()), comma_fold);
+  auto makeTextBox = [&sdl](const std::string &text,
+                            int x) -> std::pair<SDL_Texture *, SDL_Rect> {
+    SDL::TextTexture textTexture =
+        sdl.loadFromRenderedText(text, {255, 255, 255, 0}, 0);
+    const SDL_Rect rect = {(sdl.windowDimensions.w - textTexture.w) / 2, x,
+                           textTexture.w, textTexture.h};
 
-  SDL::TextTexture highScoreText =
-      sdl.loadFromRenderedText(high_scores_string, {255, 255, 255, 0}, 0);
-  const SDL_Rect highScoreRect = {(sdl.windowDimensions.w - highScoreText.w) /
-                                      2,
-                                  350, highScoreText.w, highScoreText.h};
+    return {textTexture.texture, rect};
+  };
+
+  auto drawTextBox = [&sdl](const std::pair<SDL_Texture *, SDL_Rect> &textBox) {
+    auto &[texture, box] = textBox;
+    SDL_RenderCopy(sdl.renderer, texture, nullptr, &box);
+  };
+
+  auto title = makeTextBox("Space Invaders", 200);
+  auto controls = makeTextBox("Press Space to begin", 250);
+  auto subtitle_box = makeTextBox(subtitle, 300);
+
+  std::string high_scores_string =
+      std::accumulate(std::next(high_scores.begin()), high_scores.end(),
+                      "High Scores: " + std::to_string(high_scores.front()),
+                      [](const std::string &text, uint32_t score) {
+                        return text + ", " + std::to_string(score);
+                      });
+
+  auto highscore = makeTextBox(high_scores_string, 350);
+
   bool finished = false;
   while (!finished) {
     SDL_Event e;
@@ -233,11 +238,10 @@ GameEvent title_screen(SDL::Context &sdl, const std::string &subtitle) {
     sdl.setRenderDrawColor(0x000000);
     sdl.renderClear();
 
-    SDL_RenderCopy(sdl.renderer, titleText.texture, nullptr, &titleRect);
-    SDL_RenderCopy(sdl.renderer, subTitleText.texture, nullptr, &subTitleRect);
-    SDL_RenderCopy(sdl.renderer, controlsText.texture, nullptr, &controlsRect);
-    SDL_RenderCopy(sdl.renderer, highScoreText.texture, nullptr,
-                   &highScoreRect);
+    drawTextBox(title);
+    drawTextBox(subtitle_box);
+    drawTextBox(controls);
+    drawTextBox(highscore);
     sdl.renderPresent();
   }
 
