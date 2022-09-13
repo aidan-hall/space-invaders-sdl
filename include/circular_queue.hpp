@@ -7,8 +7,8 @@ namespace unusual {
 // The successor of 'x' in a 'looping' ascending sequence, length 'len'.
 // E.g. loop_successor(0, 5) = 1, loop_successor(4, 5) = 0
 inline constexpr size_t loop_successor(const size_t x, const size_t len) {
-  const size_t succ = x + 1;
-  return (succ >= len) ? succ - len : succ;
+const size_t successor = x + 1;
+  return (successor >= len) ? successor - len : successor;
 }
 
 template <typename T, size_t N> struct circular_queue {
