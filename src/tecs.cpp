@@ -1,8 +1,5 @@
-#include <bitset>
 #include <cassert>
 #include <typeindex>
-#include <iostream>
-
 #include <tecs.hpp>
 
 using namespace Tecs;
