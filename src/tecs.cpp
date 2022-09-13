@@ -72,8 +72,8 @@ void Coordinator::removeComponent(Entity e, ComponentId c) {
 
   for (SystemId system = 0; system < systems.systemSignatures.size(); ++system) {
     const auto &systemSignature = systems.systemSignatures[system];
-    if (systems.isInteresting(old, systemSignature) &&
-        !systems.isInteresting(s, systemSignature)) {
+    if (Tecs::SystemManager::isInteresting(old, systemSignature) &&
+        !Tecs::SystemManager::isInteresting(s, systemSignature)) {
       auto &interests = systems.systemInterests[system];
       interests.erase(e);
     }
@@ -87,8 +87,8 @@ void Coordinator::addComponent(Entity e, ComponentId c) {
 
     for (SystemId system = 0; system < systems.systemSignatures.size(); ++system) {
       const auto &systemSignature = systems.systemSignatures[system];
-      if (systems.isInteresting(s, systemSignature) &&
-          !systems.isInteresting(old, systemSignature)) {
+      if (Tecs::SystemManager::isInteresting(s, systemSignature) &&
+          !Tecs::SystemManager::isInteresting(old, systemSignature)) {
         auto &interests = systems.systemInterests[system];
         interests.insert(e);
       }
