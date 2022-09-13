@@ -13,6 +13,7 @@
 #include <array>
 #include <cstdint>
 #include <cstdio>
+#include <ctime>
 #include <glm/geometric.hpp>
 #include <glm/glm.hpp>
 #include <iostream>
@@ -22,6 +23,8 @@
 #include <tecs.hpp>
 #include <tuple>
 #include <vector>
+#include <chrono>
+#include <thread>
 
 using namespace Tecs;
 
@@ -597,14 +600,14 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
 
   printf("ECS initialised\n");
 
-  uint64_t last_shot = 0;
+  auto last_shot = std::chrono::high_resolution_clock::now();
   player_score = 0;
 
   bool quit = false;
 
   while (!quit) {
 
-    auto tick = SDL_GetTicks64();
+    auto tick = std::chrono::high_resolution_clock::now();
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
       switch ((SDL_EventType)e.type) {
@@ -616,7 +619,7 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
         case SDLK_SPACE:
           // Limit bullet firing to once every N milliseconds, and don't fire on
           // key repeat.
-          if (e.key.repeat == 0 && tick > last_shot + 500) {
+          if (e.key.repeat == 0 && tick > last_shot + std::chrono::milliseconds(500)) {
             makeBullet(ecs, ecs.getComponent<Position>(player), {{0, -8}},
                        bulletTexture, {{2, 4}, 0x1});
             last_shot = tick;
@@ -675,7 +678,7 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
 
     ecs.destroyQueued();
 
-    SDL_Delay(tick + SCREEN_TICKS_PER_FRAME - SDL_GetTicks64());
+    std::this_thread::sleep_until(tick + std::chrono::milliseconds(SCREEN_TICKS_PER_FRAME));
   }
 
   return GameEvent::Quit;
