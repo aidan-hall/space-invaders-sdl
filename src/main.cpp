@@ -1,3 +1,5 @@
+#include "components.hpp"
+#include "rectangle.hpp"
 #include "sdl.hpp"
 #include <SDL.h>
 #include <SDL_events.h>
@@ -25,57 +27,6 @@
 #include <vector>
 
 using namespace Tecs;
-
-struct Position {
-  glm::vec2 p;
-};
-
-struct Velocity {
-  glm::vec2 v;
-};
-
-struct Player {};
-
-struct Alien {
-  float start_x;
-};
-
-struct RenderCopy {
-  SDL_Texture *texture;
-  int w;
-  int h;
-};
-
-struct Health {
-  float current;
-  float max;
-};
-
-struct HealthBar {
-  float hover_distance;
-};
-
-struct Rectangle {
-  float x;
-  float y;
-  float w;
-  float h;
-
-  explicit Rectangle(SDL_Rect rect)
-      : Rectangle(static_cast<float>(rect.x), static_cast<float>(rect.y),
-                  static_cast<float>(rect.w), static_cast<float>(rect.h)) {}
-
-  Rectangle(float x, float y, float w, float h) : x{x}, y{y}, w{w}, h{h} {}
-};
-inline bool rectangleIntersection(const Rectangle &a, const Rectangle &b) {
-  return !(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y ||
-           b.y + b.h <= a.y);
-}
-
-inline bool pointInRectangle(const Rectangle &a, const Position &pos) {
-  const auto &p = pos.p;
-  return (a.x < p.x && p.x < a.x + a.w && a.y < p.y && p.y < a.y + a.h);
-}
 
 using LayerMask = std::bitset<8>;
 
@@ -217,7 +168,7 @@ struct CollisionSystem : System {
 struct HealthBarSystem : System {
   SDL_Renderer *renderer;
 
-  HealthBarSystem(auto sig, auto coord, SDL_Renderer *renderer)
+  HealthBarSystem(Signature sig, Coordinator& coord, SDL_Renderer *renderer)
       : System(sig, coord), renderer{renderer} {}
 
   void run(const std::set<Entity> &entities, Coordinator &ecs) override {
@@ -359,7 +310,7 @@ struct RenderCopySystem : System {
 };
 struct EnemyShootingSystem : System {
 
-  EnemyShootingSystem(auto sig, auto coord, SDL_Texture *enemy_bullet)
+  EnemyShootingSystem(Signature sig, Coordinator& coord, SDL_Texture *enemy_bullet)
       : System(sig, coord),
         enemyBullet{enemy_bullet}, gen{std::mt19937(std::random_device()())},
         firing{std::binomial_distribution<>(3000)} {}
@@ -606,7 +557,7 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
       componentsSignature({ALIEN_COMPONENT, POSITION_COMPONENT}), ecs, sdl);
 
   OffscreenSystem offscreenSystem(componentsSignature({POSITION_COMPONENT}),
-                                  ecs, Rectangle(sdl.windowDimensions));
+                                  ecs, {0, 0, sdl.windowDimensions.w, sdl.windowDimensions.h});
 
   printf("ECS initialised\n");
 

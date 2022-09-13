@@ -42,7 +42,8 @@ struct SystemManager {
 
   SystemId registerSystem(const std::vector<Signature> &entitySignatures,
                           const Signature &sig) {
-    systemInterests.push_back(deriveInterests(entitySignatures, sig));
+    const auto interests = deriveInterests(entitySignatures, sig);
+    systemInterests.push_back(interests);
     systemSignatures.push_back(sig);
 
     return nextSystem++;
