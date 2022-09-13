@@ -10,6 +10,7 @@
 #include <SDL_video.h>
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include <glm/geometric.hpp>
@@ -19,10 +20,9 @@
 #include <ranges>
 #include <string>
 #include <tecs.hpp>
+#include <thread>
 #include <tuple>
 #include <vector>
-#include <chrono>
-#include <thread>
 
 using namespace Tecs;
 
@@ -617,7 +617,8 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
         case SDLK_SPACE:
           // Limit bullet firing to once every N milliseconds, and don't fire on
           // key repeat.
-          if (e.key.repeat == 0 && tick > last_shot + std::chrono::milliseconds(500)) {
+          if (e.key.repeat == 0 &&
+              tick > last_shot + std::chrono::milliseconds(500)) {
             makeBullet(ecs, ecs.getComponent<Position>(player), {{0, -8}},
                        bulletTexture, {{2, 4}, 0x1});
             last_shot = tick;
@@ -676,7 +677,8 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
 
     ecs.destroyQueued();
 
-    std::this_thread::sleep_until(tick + std::chrono::milliseconds(SCREEN_TICKS_PER_FRAME));
+    std::this_thread::sleep_until(
+        tick + std::chrono::milliseconds(SCREEN_TICKS_PER_FRAME));
   }
 
   return GameEvent::Quit;
