@@ -7,13 +7,11 @@
 #include <SDL_mixer.h>
 #include <SDL_rect.h>
 #include <SDL_render.h>
-#include <SDL_timer.h>
 #include <SDL_video.h>
 #include <algorithm>
 #include <array>
 #include <cstdint>
 #include <cstdio>
-#include <ctime>
 #include <glm/geometric.hpp>
 #include <glm/glm.hpp>
 #include <iostream>
