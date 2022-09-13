@@ -61,10 +61,11 @@ struct Rectangle {
   float w;
   float h;
 
-  static Rectangle fromSdlRect(SDL_Rect rect) {
-    return {static_cast<float>(rect.x), static_cast<float>(rect.y),
-            static_cast<float>(rect.w), static_cast<float>(rect.h)};
-  }
+  explicit Rectangle(SDL_Rect rect)
+      : Rectangle(static_cast<float>(rect.x), static_cast<float>(rect.y),
+                  static_cast<float>(rect.w), static_cast<float>(rect.h)) {}
+
+  Rectangle(float x, float y, float w, float h) : x{x}, y{y}, w{w}, h{h} {}
 };
 inline bool rectangleIntersection(const Rectangle &a, const Rectangle &b) {
   return !(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y ||
@@ -140,10 +141,13 @@ Entity makeBullet(Coordinator &ecs, Position initPos, Velocity initVel,
 }
 
 struct AlienEncroachmentSystem : System {
-  using System::System;
   int border;
   int screen_width;
   SDL_Renderer *renderer;
+  AlienEncroachmentSystem(const Tecs::Signature &sig, Tecs::Coordinator &coord,
+                          const SDL::Context &sdl)
+      : System(sig, coord), border{sdl.windowDimensions.h - 80},
+        screen_width{sdl.windowDimensions.w}, renderer{sdl.renderer} {}
   void run(const std::set<Entity> &aliens, Coordinator &ecs) override {
     SDL_SetRenderDrawColor(renderer, 0xFF, 0x00, 0x00, 0x00);
     SDL_RenderDrawLine(renderer, 0, border, screen_width, border);
@@ -184,7 +188,6 @@ constexpr float ALIEN_SPEED_INCREMENT = 0.03;
 
 struct CollisionSystem : System {
   using System::System;
-  SDL_Renderer *renderer;
   void run(const std::set<Entity> &entities, Coordinator &ecs) override {
     for (const auto &a : entities) {
       const auto &aPos = ecs.getComponent<Position>(a);
@@ -212,9 +215,11 @@ struct CollisionSystem : System {
   }
 };
 struct HealthBarSystem : System {
-  SDL_Renderer *renderer = nullptr;
+  SDL_Renderer *renderer;
 
-  using System::System;
+  HealthBarSystem(auto sig, auto coord, SDL_Renderer *renderer)
+      : System(sig, coord), renderer{renderer} {}
+
   void run(const std::set<Entity> &entities, Coordinator &ecs) override {
     constexpr int BAR_HEIGHT = 5;
     constexpr int BAR_LENGTH = 30;
@@ -243,10 +248,11 @@ struct HealthBarSystem : System {
 };
 
 struct AlienMovementSystem : System {
-  using System::System;
-  SDL::Context *sdl;
   float alien_speed = ALIEN_INIT_SPEED;
   int initial_n_aliens;
+  AlienMovementSystem(const Signature &sig, Coordinator &coord,
+                      int initialNAliens)
+      : System(sig, coord), initial_n_aliens(initialNAliens) {}
   void run(const std::set<Entity> &entities, Coordinator &ecs) override {
     for (const auto &e : entities) {
       auto &[pos] = ecs.getComponent<Position>(e);
@@ -271,8 +277,11 @@ struct AlienMovementSystem : System {
   }
 };
 struct PlayerControlSystem : System {
-  using System::System;
-  SDL::Context *sdl;
+  const int window_width;
+
+  PlayerControlSystem(const Signature &sig, Coordinator &coord,
+                      const int windowWidth)
+      : System(sig, coord), window_width(windowWidth) {}
   void run(const std::set<Entity> &entities, Coordinator &ecs) override {
     const auto *const keyboardState = SDL_GetKeyboardState(nullptr);
     constexpr float PLAYER_MAX_SPEED = 5.0;
@@ -291,8 +300,8 @@ struct PlayerControlSystem : System {
       auto &pos = ecs.getComponent<Position>(e).p;
 
       constexpr int WINDOW_MARGIN = 50;
-      if (pos.x > sdl->windowDimensions.w - WINDOW_MARGIN) {
-        pos.x = sdl->windowDimensions.w - WINDOW_MARGIN;
+      if (pos.x > window_width - WINDOW_MARGIN) {
+        pos.x = window_width - WINDOW_MARGIN;
         velocity.x = 0;
       } else if (pos.x < WINDOW_MARGIN) {
         pos.x = WINDOW_MARGIN;
@@ -315,9 +324,11 @@ struct VelocitySystem : public System {
   }
 };
 struct OffscreenSystem : System {
-  using System::System;
-
   Rectangle screen_space;
+
+  OffscreenSystem(const Tecs::Signature &sig, Tecs::Coordinator &coord,
+                  Rectangle the_screen_space)
+      : System(sig, coord), screen_space{the_screen_space} {}
 
   void run(const std::set<Entity> &entities, Coordinator &ecs) override {
     for (const auto &e : entities) {
@@ -347,7 +358,11 @@ struct RenderCopySystem : System {
   }
 };
 struct EnemyShootingSystem : System {
-  using System::System;
+
+  EnemyShootingSystem(auto sig, auto coord, SDL_Texture *enemy_bullet)
+      : System(sig, coord),
+        enemyBullet{enemy_bullet}, gen{std::mt19937(std::random_device()())},
+        firing{std::binomial_distribution<>(3000)} {}
   SDL_Texture *enemyBullet{};
   std::random_device rd;
   std::mt19937 gen;
@@ -557,15 +572,12 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
   PlayerControlSystem playerControlSystem(
       componentsSignature(
           {PLAYER_COMPONENT, VELOCITY_COMPONENT, POSITION_COMPONENT}),
-      ecs);
-  playerControlSystem.sdl = &sdl;
+      ecs, sdl.windowDimensions.w);
 
   AlienMovementSystem alienMovementSystem(
       componentsSignature(
           {ALIEN_COMPONENT, POSITION_COMPONENT, VELOCITY_COMPONENT}),
-      ecs);
-  alienMovementSystem.sdl = &sdl;
-  alienMovementSystem.initial_n_aliens = alien_rows * alien_columns;
+      ecs, alien_rows * alien_columns);
 
   // A system that simply calls SDL_RenderCopy().
   RenderCopySystem renderCopySystem(
@@ -575,16 +587,13 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
   HealthBarSystem healthBarSystem(
       componentsSignature(
           {HEALTH_COMPONENT, HEALTH_BAR_COMPONENT, POSITION_COMPONENT}),
-      ecs);
-  healthBarSystem.renderer = sdl.renderer;
+      ecs, sdl.renderer);
 
   DeathSystem deathSystem(componentsSignature({HEALTH_COMPONENT}), ecs);
 
   EnemyShootingSystem enemyShootingSystem(
-      componentsSignature({ALIEN_COMPONENT, POSITION_COMPONENT}), ecs);
-  enemyShootingSystem.firing = std::binomial_distribution<>(3000);
-  enemyShootingSystem.gen = std::mt19937(enemyShootingSystem.rd());
-  enemyShootingSystem.enemyBullet = sdl.loadTexture("art/enemy-bullet.png");
+      componentsSignature({ALIEN_COMPONENT, POSITION_COMPONENT}), ecs,
+      sdl.loadTexture("art/enemy-bullet.png"));
 
   CollisionSystem collisionSystem(componentsSignature({
                                       HEALTH_COMPONENT,
@@ -592,19 +601,12 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
                                       COLLISION_BOUNDS_COMPONENT,
                                   }),
                                   ecs);
-  collisionSystem.renderer = sdl.renderer;
 
   AlienEncroachmentSystem alienEncroachmentSystem(
-      componentsSignature({ALIEN_COMPONENT, POSITION_COMPONENT}), ecs);
-  alienEncroachmentSystem.border = sdl.windowDimensions.h - 80;
-  alienEncroachmentSystem.renderer = sdl.renderer;
-  alienEncroachmentSystem.screen_width = sdl.windowDimensions.w;
+      componentsSignature({ALIEN_COMPONENT, POSITION_COMPONENT}), ecs, sdl);
 
   OffscreenSystem offscreenSystem(componentsSignature({POSITION_COMPONENT}),
-                                  ecs);
-  offscreenSystem.screen_space = {0, 0,
-                                  static_cast<float>(sdl.windowDimensions.w),
-                                  static_cast<float>(sdl.windowDimensions.h)};
+                                  ecs, Rectangle(sdl.windowDimensions));
 
   printf("ECS initialised\n");
 
