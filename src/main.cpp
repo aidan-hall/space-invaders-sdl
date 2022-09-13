@@ -1,4 +1,6 @@
+#include "alien_movement_system.hpp"
 #include "components.hpp"
+#include "game_event.hpp"
 #include "rectangle.hpp"
 #include "sdl.hpp"
 #include <SDL.h>
@@ -50,14 +52,6 @@ Mix_Chunk *sound_shoot = nullptr;
 Mix_Chunk *sound_explosion = nullptr;
 SDL_Texture *alien_texture = nullptr;
 SDL_Texture *player_texture = nullptr;
-
-enum class GameEvent {
-  GameOver,
-  Quit, // Called when player closes window.
-  Scored,
-  Win,
-  Progress, // Go to the next scene
-};
 
 void makeStaticSprite(Entity entity, Coordinator &ecs, Position initPos,
                       SDL_Texture *texture) {
@@ -130,12 +124,8 @@ struct DeathSystem : System {
   }
 };
 
-constexpr float ALIEN_INIT_SPEED = 0.2;
-constexpr float ALIEN_SHUFFLE_DISTANCE = 200.0;
-constexpr float ALIEN_DROP_DISTANCE = 10.0;
 constexpr int ALIEN_ROWS = 4;
 constexpr int ALIEN_COLUMNS = 20;
-constexpr float ALIEN_SPEED_INCREMENT = 0.03;
 
 struct CollisionSystem : System {
   using System::System;
@@ -168,7 +158,7 @@ struct CollisionSystem : System {
 struct HealthBarSystem : System {
   SDL_Renderer *renderer;
 
-  HealthBarSystem(Signature sig, Coordinator& coord, SDL_Renderer *renderer)
+  HealthBarSystem(Signature sig, Coordinator &coord, SDL_Renderer *renderer)
       : System(sig, coord), renderer{renderer} {}
 
   void run(const std::set<Entity> &entities, Coordinator &ecs) override {
@@ -198,35 +188,6 @@ struct HealthBarSystem : System {
   }
 };
 
-struct AlienMovementSystem : System {
-  float alien_speed = ALIEN_INIT_SPEED;
-  int initial_n_aliens;
-  AlienMovementSystem(const Signature &sig, Coordinator &coord,
-                      int initialNAliens)
-      : System(sig, coord), initial_n_aliens(initialNAliens) {}
-  void run(const std::set<Entity> &entities, Coordinator &ecs) override {
-    for (const auto &e : entities) {
-      auto &[pos] = ecs.getComponent<Position>(e);
-      auto &[vel] = ecs.getComponent<Velocity>(e);
-      const auto &start_x = ecs.getComponent<Alien>(e).start_x;
-      if (pos.x < start_x) {
-        pos.y += ALIEN_DROP_DISTANCE;
-        vel.x = alien_speed;
-      } else if (pos.x > start_x + ALIEN_SHUFFLE_DISTANCE) {
-        pos.y += ALIEN_DROP_DISTANCE;
-        vel.x = -alien_speed;
-      }
-    }
-
-    const auto current_n_aliens = entities.size();
-    if (current_n_aliens == 0) {
-      events.push_back(GameEvent::Win);
-    }
-
-    alien_speed = ALIEN_INIT_SPEED +
-                  ALIEN_SPEED_INCREMENT * (initial_n_aliens - current_n_aliens);
-  }
-};
 struct PlayerControlSystem : System {
   const int window_width;
 
@@ -278,8 +239,10 @@ struct OffscreenSystem : System {
   Rectangle screen_space;
 
   OffscreenSystem(const Tecs::Signature &sig, Tecs::Coordinator &coord,
-                  Rectangle the_screen_space)
-      : System(sig, coord), screen_space{the_screen_space} {}
+                  SDL_Rect &screen_dimensions)
+      : System(sig, coord), screen_space{
+                                0, 0, static_cast<float>(screen_dimensions.w),
+                                static_cast<float>(screen_dimensions.h)} {}
 
   void run(const std::set<Entity> &entities, Coordinator &ecs) override {
     for (const auto &e : entities) {
@@ -310,7 +273,8 @@ struct RenderCopySystem : System {
 };
 struct EnemyShootingSystem : System {
 
-  EnemyShootingSystem(Signature sig, Coordinator& coord, SDL_Texture *enemy_bullet)
+  EnemyShootingSystem(Signature sig, Coordinator &coord,
+                      SDL_Texture *enemy_bullet)
       : System(sig, coord),
         enemyBullet{enemy_bullet}, gen{std::mt19937(std::random_device()())},
         firing{std::binomial_distribution<>(3000)} {}
@@ -528,7 +492,7 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
   AlienMovementSystem alienMovementSystem(
       componentsSignature(
           {ALIEN_COMPONENT, POSITION_COMPONENT, VELOCITY_COMPONENT}),
-      ecs, alien_rows * alien_columns);
+      ecs, alien_rows * alien_columns, ALIEN_INIT_SPEED, events);
 
   // A system that simply calls SDL_RenderCopy().
   RenderCopySystem renderCopySystem(
@@ -557,7 +521,7 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
       componentsSignature({ALIEN_COMPONENT, POSITION_COMPONENT}), ecs, sdl);
 
   OffscreenSystem offscreenSystem(componentsSignature({POSITION_COMPONENT}),
-                                  ecs, {0, 0, sdl.windowDimensions.w, sdl.windowDimensions.h});
+                                  ecs, sdl.windowDimensions);
 
   printf("ECS initialised\n");
 
