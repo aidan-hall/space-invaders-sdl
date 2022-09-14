@@ -21,7 +21,6 @@
 #include <glm/glm.hpp>
 #include <iostream>
 #include <random>
-#include <ranges>
 #include <string>
 #include <tecs.hpp>
 #include <thread>

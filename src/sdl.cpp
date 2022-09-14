@@ -1,7 +1,5 @@
 #include "sdl.hpp"
 #include <SDL.h>
-#include <SDL_error.h>
-#include <SDL_events.h>
 #include <SDL_hints.h>
 #include <SDL_image.h>
 #include <SDL_joystick.h>
@@ -11,24 +9,11 @@
 #include <SDL_rect.h>
 #include <SDL_render.h>
 #include <SDL_surface.h>
-#include <SDL_timer.h>
 #include <SDL_ttf.h>
 #include <SDL_version.h>
 #include <SDL_video.h>
-#include <cmath>
 #include <cstddef>
-#include <stdexcept>
 #include <string>
-#include <unordered_map>
-
-enum class KeyPressSurface {
-  Default = 0,
-  Up,
-  Down,
-  Left,
-  Right,
-  Total,
-};
 
 namespace SDL {
 Context::Context(Uint32 initFlags, std::string name, SDL_Rect dimensions,

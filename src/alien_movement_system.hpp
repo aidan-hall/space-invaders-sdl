@@ -1,12 +1,9 @@
-//
-// Created by aidan on 13/09/22.
-//
-
 #ifndef GAME_ALIEN_MOVEMENT_SYSTEM_HPP
 #define GAME_ALIEN_MOVEMENT_SYSTEM_HPP
 
 #include "components.hpp"
 #include "game_event.hpp"
+#include "tecs.hpp"
 using namespace Tecs;
 // haha
 

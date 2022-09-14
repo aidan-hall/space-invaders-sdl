@@ -1,7 +1,3 @@
-//
-// Created by aidan on 13/09/22.
-//
-
 #ifndef GAME_COMPONENTS_HPP
 #define GAME_COMPONENTS_HPP
 
