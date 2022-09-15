@@ -17,8 +17,15 @@
     </configurations>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ca59b7ee-668b-4c07-bfea-5ee22d671d46" name="Changes" comment="[.idea] Cleanup">
+    <list default="true" id="ca59b7ee-668b-4c07-bfea-5ee22d671d46" name="Changes" comment="[main] Handle window close in title_screen()&#10;&#10;Previously, any return from title_screen() was&#10;treated as &quot;ready to continue&quot;.">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/art/alien1.ase" beforeDir="false" afterPath="$PROJECT_DIR$/art/alien1.ase" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/art/alien1.png" beforeDir="false" afterPath="$PROJECT_DIR$/art/alien1.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/include/tecs.hpp" beforeDir="false" afterPath="$PROJECT_DIR$/include/tecs.hpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components.hpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/components.hpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/tecs.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/tecs.cpp" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -28,6 +35,9 @@
   <component name="ExecutionTargetManager" SELECTED_TARGET="CMakeBuildProfile:Debug" />
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/src/main.cpp" root0="FORCE_HIGHLIGHTING" />
   </component>
   <component name="MarkdownSettingsMigration">
     <option name="stateVersion" value="1" />
@@ -45,21 +55,23 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
-    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
-    &quot;cf.advertisement.text.overridden&quot;: &quot;true&quot;,
-    &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
-    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/home/aidan/programming/games/sdl/galaga&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;run.code.analysis.last.selected.profile&quot;: &quot;pProject Default&quot;,
-    &quot;structure.view.defaults.are.configured&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
+    "WebServerToolWindowFactoryState": "false",
+    "cf.advertisement.text.overridden": "true",
+    "cf.first.check.clang-format": "false",
+    "cidr.known.project.marker": "true",
+    "full.screen.before.presentation.mode": "false",
+    "last_opened_file_path": "/home/aidan/programming/games/sdl/galaga",
+    "nodejs_package_manager_path": "npm",
+    "run.code.analysis.last.selected.profile": "pProject Default",
+    "settings.editor.selected.configurable": "com.maddyhome.idea.vim.ui.VimEmulationConfigurable",
+    "structure.view.defaults.are.configured": "true"
   }
-}</component>
+}]]></component>
   <component name="RunManager">
     <configuration name="Game" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" WORKING_DIR="file://$PROJECT_DIR$" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Game" TARGET_NAME="Game" CONFIG_NAME="Debug" RUN_TARGET_PROJECT_NAME="Game" RUN_TARGET_NAME="Game">
       <method v="2">
@@ -77,6 +89,8 @@
       <updated>1663165879437</updated>
       <workItem from="1663165881527" duration="139000" />
       <workItem from="1663166023051" duration="160000" />
+      <workItem from="1663167568259" duration="6133000" />
+      <workItem from="1663250708434" duration="10193000" />
     </task>
     <task id="LOCAL-00001" summary="[.idea] Cleanup">
       <created>1663166027703</created>
@@ -85,7 +99,14 @@
       <option name="project" value="LOCAL" />
       <updated>1663166027703</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="[main] Handle window close in title_screen()&#10;&#10;Previously, any return from title_screen() was&#10;treated as &quot;ready to continue&quot;.">
+      <created>1663251971435</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1663251971435</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -104,6 +125,7 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="[.idea] Cleanup" />
-    <option name="LAST_COMMIT_MESSAGE" value="[.idea] Cleanup" />
+    <MESSAGE value="[main] Handle window close in title_screen()&#10;&#10;Previously, any return from title_screen() was&#10;treated as &quot;ready to continue&quot;." />
+    <option name="LAST_COMMIT_MESSAGE" value="[main] Handle window close in title_screen()&#10;&#10;Previously, any return from title_screen() was&#10;treated as &quot;ready to continue&quot;." />
   </component>
 </project>
