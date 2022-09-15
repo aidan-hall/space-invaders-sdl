@@ -53,17 +53,33 @@ SDL_Texture *alien_texture = nullptr;
 SDL_Texture *player_texture = nullptr;
 
 void makeStaticSprite(Entity entity, Coordinator &ecs, Position initPos,
-                      SDL_Texture *texture) {
+                      SDL_Texture *texture, int w, int h) {
   ecs.addComponent<Position>(entity);
   ecs.addComponent<RenderCopy>(entity);
 
   ecs.getComponent<Position>(entity) = initPos;
-  {
-    auto &render_copy = ecs.getComponent<RenderCopy>(entity);
-    render_copy.texture = texture;
-    SDL_QueryTexture(render_copy.texture, nullptr, nullptr, &render_copy.w,
-                     &render_copy.h);
-  }
+
+  auto &render_copy = ecs.getComponent<RenderCopy>(entity);
+  render_copy.texture = texture;
+  render_copy.w = w;
+  render_copy.h = h;
+}
+
+void makeAnimatedSprite(Entity entity, Coordinator &ecs, Position initPos,
+                        SDL_Texture *texture, Animation animation) {
+  ecs.addComponent<Position>(entity);
+  ecs.addComponent<RenderCopy>(entity);
+  ecs.addComponent<Animation>(entity);
+
+  ecs.getComponent<Position>(entity) = initPos;
+
+  auto &animation_component = ecs.getComponent<Animation>(entity);
+  // TODO: Actually *copy* the Animation.
+  animation_component = animation;
+  auto &render_copy = ecs.getComponent<RenderCopy>(entity);
+  render_copy.texture = texture;
+  render_copy.w = animation.src_rect.w;
+  render_copy.h = animation.src_rect.h;
 }
 
 std::vector<GameEvent> events;
@@ -72,7 +88,7 @@ Entity makeBullet(Coordinator &ecs, Position initPos, Velocity initVel,
                   SDL_Texture *texture, const CollisionBounds &bounds) {
   Mix_PlayChannel(-1, sound_shoot, 0);
   auto bullet = ecs.newEntity();
-  makeStaticSprite(bullet, ecs, initPos, texture);
+  makeStaticSprite(bullet, ecs, initPos, texture, 4, 8);
 
   ecs.addComponent<Velocity>(bullet);
   ecs.getComponent<Velocity>(bullet) = {initVel};
@@ -251,25 +267,73 @@ struct OffscreenSystem : System {
     }
   }
 };
-struct RenderCopySystem : System {
+
+// Return the input rectangle, with its centre where its top left corner was.
+SDL_Rect centered_rectangle(SDL_Rect rect) {
+  return {rect.x - rect.w / 2, rect.y - rect.h / 2, rect.w, rect.h};
+}
+
+struct StaticSpriteRenderingSystem : System {
   SDL_Renderer *renderer = nullptr;
 
   void run(const std::set<Entity> &entities, Coordinator &ecs) override {
     for (const auto &e : entities) {
       const auto &[pos] = ecs.getComponent<Position>(e);
-      const auto &[texture, w, h] = ecs.getComponent<RenderCopy>(e);
-      const SDL_Rect renderRect = {(int)pos.x - w / 2, (int)pos.y - h / 2, w,
-                                   h};
-      SDL_RenderCopy(renderer, texture, nullptr, &renderRect);
+      const auto &render_copy = ecs.getComponent<RenderCopy>(e);
+      const SDL_Rect renderRect = centered_rectangle(
+          {(int)pos.x, (int)pos.y, render_copy.w, render_copy.h});
+      SDL_RenderCopy(renderer, render_copy.texture, nullptr, &renderRect);
     }
   }
 
-  RenderCopySystem(const Signature &sig, Coordinator &coord,
-                   SDL_Renderer *theRenderer)
+  StaticSpriteRenderingSystem(const Signature &sig, Coordinator &coord,
+                              SDL_Renderer *theRenderer)
       : System(sig, coord) {
     this->renderer = theRenderer;
   }
 };
+
+struct AnimatedSpriteRenderingSystem : System {
+  SDL_Renderer *renderer = nullptr;
+
+  AnimatedSpriteRenderingSystem(const Signature &sig, Coordinator &coord,
+                                SDL_Renderer *renderer)
+      : System(sig, coord), renderer(renderer) {}
+
+  void run(const std::set<Entity> &entities, Coordinator &ecs) override {
+    for (const auto &e : entities) {
+      auto &animation = ecs.getComponent<Animation>(e);
+
+      // Update animation step & step frames as appropriate.
+      if (animation.current_step_frames >= animation.frames_per_step) {
+        animation.step++;
+        animation.current_step_frames = 0;
+
+        if (animation.step >= animation.n_steps) {
+          animation.step = 0;
+        }
+
+        // Assuming sprites are in a horizontal line and of uniform size,
+        // only the x component of the source rectangle needs updating.
+        animation.src_rect.x = animation.step * animation.src_rect.w;
+      }
+
+
+
+
+      const auto &pos = ecs.getComponent<Position>(e).p;
+      const auto &render_copy = ecs.getComponent<RenderCopy>(e);
+      const SDL_Rect renderRect = centered_rectangle(
+          {(int)pos.x, (int)pos.y, render_copy.w, render_copy.h});
+
+      SDL_RenderCopy(renderer, render_copy.texture, &animation.src_rect,
+                     &renderRect);
+
+      animation.current_step_frames++;
+    }
+  }
+};
+
 struct EnemyShootingSystem : System {
 
   EnemyShootingSystem(Signature sig, Coordinator &coord,
@@ -394,14 +458,13 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
   const auto ALIEN_COMPONENT = ecs.registerComponent<Alien>();
   const auto COLLISION_BOUNDS_COMPONENT =
       ecs.registerComponent<CollisionBounds>();
+  const auto ANIMATION_COMPONENT = ecs.registerComponent<Animation>();
 
   // Set up player.
   auto player = ecs.newEntity();
   makeStaticSprite(player, ecs,
                    {{sdl.windowDimensions.w / 2, sdl.windowDimensions.h - 40}},
-                   player_texture);
-
-  ecs.getComponent<RenderCopy>(player).w *= 2;
+                   player_texture, 64, 32);
 
   ecs.addComponent<Velocity>(player);
   ecs.addComponent<Player>(player);
@@ -419,8 +482,9 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
                     "Level: " + std::to_string(level));
   ecs.addComponent<Position>(level_text_entity);
   {
-    const auto &[_t, w, h] = ecs.getComponent<RenderCopy>(level_text_entity);
-    ecs.getComponent<Position>(level_text_entity) = {{w / 2 + 5, h / 2 + 5}};
+    const auto &render_copy = ecs.getComponent<RenderCopy>(level_text_entity);
+    ecs.getComponent<Position>(level_text_entity) = {
+        {render_copy.w / 2 + 5, render_copy.h / 2 + 5}};
   }
 
   // Add score text box.
@@ -435,11 +499,14 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
 
   alien_texture = sdl.loadTexture("art/alien1.png");
   std::vector<Entity> aliens;
+  Animation alien_animation = {{0, 0, 32, 32}, 0, 2, 20, 0};
   for (int j = 1; j <= alien_rows; ++j) {
     for (int i = 1; i <= alien_columns; ++i) {
       auto alien = ecs.newEntity();
       glm::vec2 pos = {i * 50 + j * 2, j * 60};
-      makeStaticSprite(alien, ecs, {{pos.x + j * 20, pos.y}}, alien_texture);
+      makeAnimatedSprite(alien, ecs, {{pos.x + j * 20, pos.y}}, alien_texture,
+                         alien_animation);
+      alien_animation.step = (alien_animation.step + 1) % alien_animation.n_steps;
       ecs.addComponent<Alien>(alien);
       ecs.getComponent<Alien>(alien).start_x = pos.x;
       // Off-sets the rows.
@@ -453,20 +520,18 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
       ecs.getComponent<CollisionBounds>(alien) = {{16, 16}, 0x1 | 0x4};
       aliens.push_back(alien);
     }
+    alien_animation.frames_per_step -= 3;
   }
 
   // Set up barriers.
   auto *barrierTexture = sdl.loadTexture("art/barrier.png");
   for (int i = 0; i < 4; ++i) {
     auto barrier = ecs.newEntity();
+    constexpr int BARRIER_SCALE = 3;
     makeStaticSprite(barrier, ecs,
                      {{sdl.windowDimensions.w * (0.5 + i) / 4.0,
                        sdl.windowDimensions.h - 150}},
-                     barrierTexture);
-    auto &rc = ecs.getComponent<RenderCopy>(barrier);
-    constexpr int BARRIER_SCALE = 3;
-    rc.w *= BARRIER_SCALE;
-    rc.h *= BARRIER_SCALE;
+                     barrierTexture, 32 * BARRIER_SCALE, 16 * BARRIER_SCALE);
 
     ecs.addComponent<Health>(barrier);
     ecs.getComponent<Health>(barrier) = {15.0, 15.0};
@@ -494,9 +559,15 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
       ecs, alien_rows * alien_columns, ALIEN_INIT_SPEED, events);
 
   // A system that simply calls SDL_RenderCopy().
-  RenderCopySystem renderCopySystem(
-      componentsSignature({POSITION_COMPONENT, RENDERCOPY_COMPONENT}), ecs,
-      sdl.renderer);
+  StaticSpriteRenderingSystem staticSpriteRenderingSystem(
+      componentsSignature({POSITION_COMPONENT, RENDERCOPY_COMPONENT},
+                          {ANIMATION_COMPONENT}),
+      ecs, sdl.renderer);
+
+  AnimatedSpriteRenderingSystem animatedSpriteRenderingSystem(
+      componentsSignature(
+          {POSITION_COMPONENT, RENDERCOPY_COMPONENT, ANIMATION_COMPONENT}),
+      ecs, sdl.renderer);
 
   HealthBarSystem healthBarSystem(
       componentsSignature(
@@ -570,7 +641,8 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
     runSystem(collisionSystem, ecs);
     runSystem(alienEncroachmentSystem, ecs);
 
-    runSystem(renderCopySystem, ecs);
+    runSystem(staticSpriteRenderingSystem, ecs);
+    runSystem(animatedSpriteRenderingSystem, ecs);
     runSystem(healthBarSystem, ecs);
     runSystem(offscreenSystem, ecs);
 

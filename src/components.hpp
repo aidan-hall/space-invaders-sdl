@@ -19,6 +19,13 @@ struct RenderCopy {
   int w;
   int h;
 };
+struct Animation {
+  SDL_Rect src_rect;
+  int step;
+  int n_steps;
+  int frames_per_step;
+  int current_step_frames;
+};
 struct Health {
   float current;
   float max;
