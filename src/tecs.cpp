@@ -11,7 +11,7 @@ Coordinator::Coordinator() {
   // A Signature is a Component that every Entity implicitly has,
   // identifying what other Components it has.
   nextComponentId = -1;
-  registerComponent<Signature>();
+  registerComponent<ComponentMask>();
 }
 
 SystemId Coordinator::registerSystem(const Signature &sig) {
