@@ -20,3 +20,11 @@ You can then just build as you would with any CMake project.
 
 This will probably only compile on Linux with GCC or Clang, but I
 won't stop you from trying to get it working on Windows.
+
+
+## TODO
+* Animations:
+  * Animation component (src_rect).
+* Alien Death Explosions
+* More alien sprites: Cycles for green, + red and blue(?)
+* Mothership: Flies along the top; fast; bonus points.
