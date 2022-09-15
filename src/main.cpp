@@ -642,9 +642,7 @@ int main() {
   printf("SDL initialised\n");
   player_texture = sdl.loadTexture("art/player.png");
 
-  GameEvent res = GameEvent::Win;
-
-  title_screen(sdl, "Space to shoot; Arrow Keys to move.");
+  GameEvent res = title_screen(sdl, "Space to shoot; Arrow Keys to move.");
 
   int level = 1;
 
@@ -656,10 +654,10 @@ int main() {
       std::ranges::sort(high_scores, std::greater<>());
     }
     if (res == GameEvent::Win) {
-      title_screen(sdl, "Finished Level: " + std::to_string(level));
+      res = title_screen(sdl, "Finished Level: " + std::to_string(level));
       level += 1;
     } else if (res == GameEvent::GameOver) {
-      title_screen(sdl, "Game Over");
+      res = title_screen(sdl, "Game Over");
       level = 1;
       player_score = 0;
     }
