@@ -49,7 +49,6 @@ struct CollisionBounds {
 // Sounds
 Mix_Chunk *sound_shoot = nullptr;
 Mix_Chunk *sound_explosion = nullptr;
-SDL_Texture *alien_texture = nullptr;
 SDL_Texture *player_texture = nullptr;
 
 void makeStaticSprite(Entity entity, Coordinator &ecs, Position initPos,
@@ -67,9 +66,9 @@ void makeStaticSprite(Entity entity, Coordinator &ecs, Position initPos,
 
 void makeAnimatedSprite(Entity entity, Coordinator &ecs, Position initPos,
                         SDL_Texture *texture, Animation animation) {
+  ecs.addComponent<Animation>(entity);
   ecs.addComponent<Position>(entity);
   ecs.addComponent<RenderCopy>(entity);
-  ecs.addComponent<Animation>(entity);
 
   ecs.getComponent<Position>(entity) = initPos;
 
@@ -85,10 +84,12 @@ void makeAnimatedSprite(Entity entity, Coordinator &ecs, Position initPos,
 std::vector<GameEvent> events;
 
 Entity makeBullet(Coordinator &ecs, Position initPos, Velocity initVel,
-                  SDL_Texture *texture, const CollisionBounds &bounds) {
+                  SDL_Texture *texture, const CollisionBounds &bounds,
+                  int animation_steps) {
   Mix_PlayChannel(-1, sound_shoot, 0);
   auto bullet = ecs.newEntity();
-  makeStaticSprite(bullet, ecs, initPos, texture, 4, 8);
+  makeAnimatedSprite(bullet, ecs, initPos, texture,
+                     {{0, 0, 4, 8}, 0, animation_steps, 5, 0});
 
   ecs.addComponent<Velocity>(bullet);
   ecs.getComponent<Velocity>(bullet) = {initVel};
@@ -296,6 +297,8 @@ struct StaticSpriteRenderingSystem : System {
 struct AnimatedSpriteRenderingSystem : System {
   SDL_Renderer *renderer = nullptr;
 
+  // TODO: Animation must be added before RenderCopy, so the static renderer
+  // doesn't get it.
   AnimatedSpriteRenderingSystem(const Signature &sig, Coordinator &coord,
                                 SDL_Renderer *renderer)
       : System(sig, coord), renderer(renderer) {}
@@ -317,9 +320,6 @@ struct AnimatedSpriteRenderingSystem : System {
         // only the x component of the source rectangle needs updating.
         animation.src_rect.x = animation.step * animation.src_rect.w;
       }
-
-
-
 
       const auto &pos = ecs.getComponent<Position>(e).p;
       const auto &render_copy = ecs.getComponent<RenderCopy>(e);
@@ -352,7 +352,7 @@ struct EnemyShootingSystem : System {
       // aliens to go along before firing.
       if (nextFire <= 0) {
         makeBullet(ecs, ecs.getComponent<Position>(e), {{0, 6}}, enemyBullet,
-                   {{2, 4}, 0x2});
+                   {{2, 4}, 0x2}, 6);
         nextFire = firing(gen);
       } else {
         nextFire -= 1;
@@ -497,16 +497,19 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
 
   // Set up aliens.
 
-  alien_texture = sdl.loadTexture("art/alien1.png");
+  std::vector<SDL_Texture *> alien_textures =
+    sdl.loadTextures({"art/alien1.png", "art/alien2.png", "art/alien3.png"});
   std::vector<Entity> aliens;
   Animation alien_animation = {{0, 0, 32, 32}, 0, 2, 20, 0};
   for (int j = 1; j <= alien_rows; ++j) {
     for (int i = 1; i <= alien_columns; ++i) {
       auto alien = ecs.newEntity();
       glm::vec2 pos = {i * 50 + j * 2, j * 60};
-      makeAnimatedSprite(alien, ecs, {{pos.x + j * 20, pos.y}}, alien_texture,
+      makeAnimatedSprite(alien, ecs, {{pos.x + j * 20, pos.y}},
+                         alien_textures[alien_textures.size() * (j-1) / alien_rows],
                          alien_animation);
-      alien_animation.step = (alien_animation.step + 1) % alien_animation.n_steps;
+      alien_animation.step =
+          (alien_animation.step + 1) % alien_animation.n_steps;
       ecs.addComponent<Alien>(alien);
       ecs.getComponent<Alien>(alien).start_x = pos.x;
       // Off-sets the rows.
@@ -617,7 +620,7 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
           if (e.key.repeat == 0 &&
               tick > last_shot + std::chrono::milliseconds(500)) {
             makeBullet(ecs, ecs.getComponent<Position>(player), {{0, -8}},
-                       bulletTexture, {{2, 4}, 0x1});
+                       bulletTexture, {{2, 4}, 0x1}, 2);
             last_shot = tick;
           }
           break;
