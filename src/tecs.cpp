@@ -4,8 +4,8 @@
 
 using namespace Tecs;
 
-System::System(const Signature &sig, Coordinator &coord) {
-  id = coord.registerSystem(sig);
+System::System(const Signature &componentMask, Coordinator &coord) {
+  id = coord.registerSystem(componentMask);
 }
 Coordinator::Coordinator() {
   // A Signature is a Component that every Entity implicitly has,
@@ -15,7 +15,7 @@ Coordinator::Coordinator() {
 }
 
 SystemId Coordinator::registerSystem(const Signature &sig) {
-  auto signatures = getComponents<Signature>();
+  auto signatures = getComponents<ComponentMask>();
 
   auto s = systems.registerSystem(signatures, sig);
 
@@ -32,7 +32,7 @@ Entity Coordinator::newEntity() {
   return e;
 }
 void Coordinator::destroyEntity(Entity e) {
-  getComponent<Signature>(e).reset();
+  getComponent<ComponentMask>(e).reset();
   for (auto &interest : systems.systemInterests) {
     interest.erase(e);
   }
@@ -63,8 +63,8 @@ ComponentId Coordinator::registerComponent(const std::type_index& typeIndex) {
 }
 
 void Coordinator::removeComponent(Entity e, ComponentId c) {
-  auto &s = getComponent<Signature>(e);
-  Signature old = s;
+  auto &s = getComponent<ComponentMask>(e);
+  ComponentMask old = s;
   s.reset(c);
 
   for (SystemId system = 0; system < systems.systemSignatures.size(); ++system) {
@@ -78,8 +78,8 @@ void Coordinator::removeComponent(Entity e, ComponentId c) {
 }
 
 void Coordinator::addComponent(Entity e, ComponentId c) {
-    auto &s = getComponent<Signature>(e);
-    const Signature old = s;
+    auto &s = getComponent<ComponentMask>(e);
+    const auto old = s;
     s.set(c);
 
     for (SystemId system = 0; system < systems.systemSignatures.size(); ++system) {

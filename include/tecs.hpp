@@ -22,13 +22,21 @@ using Entity = std::size_t;
 using ComponentId = std::uint8_t;
 // This value means a Signature should fit in a long/64-bit integer.
 static constexpr std::size_t MAX_COMPONENTS = 64;
-using Signature = std::bitset<MAX_COMPONENTS>;
+using ComponentMask = std::bitset<MAX_COMPONENTS>;
+struct Signature {
+  ComponentMask include;
+  ComponentMask exclude;
+};
 
 inline Signature
-componentsSignature(const std::vector<ComponentId> &components) {
+componentsSignature(const std::vector<ComponentId> &components,
+                    const std::vector<ComponentId> &excluded_components = {}) {
   Signature s;
   for (auto &c : components) {
-    s.set(c);
+    s.include.set(c);
+  }
+  for (auto &c : excluded_components) {
+    s.exclude.set(c);
   }
   return s;
 }
@@ -40,7 +48,7 @@ struct SystemManager {
   std::vector<std::set<Entity>> systemInterests;
   std::vector<Signature> systemSignatures;
 
-  SystemId registerSystem(const std::vector<Signature> &entitySignatures,
+  SystemId registerSystem(const std::vector<ComponentMask> &entitySignatures,
                           const Signature &sig) {
     const auto interests = deriveInterests(entitySignatures, sig);
     systemInterests.push_back(interests);
@@ -51,15 +59,16 @@ struct SystemManager {
 
   // Whether an entity with the given Signature would be interesting to the
   // given system.
-  static inline bool isInteresting(const Signature &entity,
+  static inline bool isInteresting(const ComponentMask &entity,
                                    const Signature &system) {
-    return (entity & system) == system;
+    return ((entity & system.include) == system.include) &&
+           ((entity & system.exclude) == 0);
   }
 
   // Derive which entities a System with the given Signature would be interested
   // in.
   static std::set<Entity>
-  deriveInterests(const std::vector<Signature> &entitySignatures,
+  deriveInterests(const std::vector<ComponentMask> &entitySignatures,
                   const Signature &sig) {
     std::set<Entity> interests;
     for (Entity i = 0; i < entitySignatures.size(); ++i) {
@@ -71,7 +80,7 @@ struct SystemManager {
     return interests;
   }
 
-  void updateInterests(const std::vector<Signature> &entitySignatures,
+  void updateInterests(const std::vector<ComponentMask> &entitySignatures,
                        SystemId system) {
     systemInterests[system] =
         deriveInterests(entitySignatures, systemSignatures[system]);
@@ -107,7 +116,8 @@ struct Coordinator {
   // DO NOT CALL IN A SYSTEM
   void destroyEntity(Entity e);
 
-  // Queues Entity for destruction with next call to destroyQueued(). "Safe" in Systems.
+  // Queues Entity for destruction with next call to destroyQueued(). "Safe" in
+  // Systems.
   void queueDestroyEntity(Entity e);
 
   // DO NOT CALL IN A SYSTEM
@@ -117,7 +127,8 @@ struct Coordinator {
 
   template <typename Component> inline ComponentId registerComponent() {
     const auto id = registerComponent(std::type_index(typeid(Component)));
-    // Static method-local variables might not be instance-local: Remove previous data.
+    // Static method-local variables might not be instance-local: Remove
+    // previous data.
     getComponents<Component>().clear();
     return id;
   }
@@ -160,12 +171,12 @@ struct Coordinator {
   }
 
   template <typename Component> inline bool hasComponent(Entity e) {
-    return getComponent<Signature>(e).test(componentId<Component>());
+    return getComponent<ComponentMask>(e).test(componentId<Component>());
   }
 };
 
 // Every Entity implicitly has a Signature.
-template <> inline bool Coordinator::hasComponent<Signature>(Entity e) {
+template <> inline bool Coordinator::hasComponent<ComponentMask>(Entity e) {
   std::ignore = e;
   return true;
 }
@@ -182,11 +193,10 @@ inline void Coordinator::registerSystem(System &sys, const Signature &sig) {
   sys.id = registerSystem(sig);
 }
 
-  // Pretty much just a utility, and I desperately want to avoid vtable lookup.
-  template<typename S>
-  inline void runSystem(S &sys, Coordinator &coord) {
-    sys.run(coord.systems.systemInterests[sys.id], coord);
-  }
+// Pretty much just a utility, and I desperately want to avoid vtable lookup.
+template <typename S> inline void runSystem(S &sys, Coordinator &coord) {
+  sys.run(coord.systems.systemInterests[sys.id], coord);
+}
 
 } // namespace Tecs
 
