@@ -599,7 +599,6 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
   printf("ECS initialised\n");
 
   auto last_shot = std::chrono::high_resolution_clock::now();
-  player_score = 0;
 
   bool quit = false;
 
