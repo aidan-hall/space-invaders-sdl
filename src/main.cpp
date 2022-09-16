@@ -501,6 +501,9 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
     sdl.loadTextures({"art/alien1.png", "art/alien2.png", "art/alien3.png"});
   std::vector<Entity> aliens;
   Animation alien_animation = {{0, 0, 32, 32}, 0, 2, 20, 0};
+  std::random_device rd;
+  std::default_random_engine eng(rd());
+  std::uniform_int_distribution<int> step_frames_rng(1, alien_animation.frames_per_step);
   for (int j = 1; j <= alien_rows; ++j) {
     for (int i = 1; i <= alien_columns; ++i) {
       auto alien = ecs.newEntity();
@@ -510,6 +513,7 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
                          alien_animation);
       alien_animation.step =
           (alien_animation.step + 1) % alien_animation.n_steps;
+      alien_animation.current_step_frames = step_frames_rng(eng);
       ecs.addComponent<Alien>(alien);
       ecs.getComponent<Alien>(alien).start_x = pos.x;
       // Off-sets the rows.
@@ -523,7 +527,6 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
       ecs.getComponent<CollisionBounds>(alien) = {{16, 16}, 0x1 | 0x4};
       aliens.push_back(alien);
     }
-    alien_animation.frames_per_step -= 3;
   }
 
   // Set up barriers.

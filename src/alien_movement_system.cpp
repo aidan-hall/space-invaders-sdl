@@ -11,6 +11,8 @@
 constexpr float ALIEN_SHUFFLE_DISTANCE = 200.0;
 constexpr float ALIEN_DROP_DISTANCE = 10.0;
 constexpr float ALIEN_SPEED_INCREMENT = 0.03;
+constexpr float MAX_FRAMES_PER_STEP = 30;
+constexpr float MIN_FRAMES_PER_STEP = 3;
 
 void AlienMovementSystem::run(const std::set<Entity> &entities,
                               Coordinator &ecs) {
@@ -25,9 +27,12 @@ void AlienMovementSystem::run(const std::set<Entity> &entities,
       pos.y += ALIEN_DROP_DISTANCE;
       vel.x = -alien_speed;
     }
+    ecs.getComponent<Animation>(e).frames_per_step =
+        MIN_FRAMES_PER_STEP + (MAX_FRAMES_PER_STEP - MIN_FRAMES_PER_STEP) *
+      ((float)current_n_aliens / (float)initial_n_aliens);
   }
 
-  const auto current_n_aliens = entities.size();
+  current_n_aliens = entities.size();
   if (current_n_aliens == 0) {
     events.push_back(GameEvent::Win);
   }
