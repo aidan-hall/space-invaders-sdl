@@ -184,9 +184,13 @@ template <> inline bool Coordinator::hasComponent<ComponentMask>(Entity e) {
   return true;
 }
 
+// This doesn't work with float, for some reason.
+using Duration = std::chrono::duration<double>;
+using TimePoint =
+    std::chrono::time_point<std::chrono::high_resolution_clock, Duration>;
+
 struct System {
   SystemId id;
-  using Duration = std::chrono::system_clock::duration;
 
   virtual void run(const std::set<Entity> &entities, Coordinator &coord,
                    const Duration delta) = 0;
@@ -200,7 +204,7 @@ inline void Coordinator::registerSystem(System &sys, const Signature &sig) {
 
 // Pretty much just a utility, and I desperately want to avoid vtable lookup.
 template <typename S>
-inline void runSystem(S &sys, Coordinator &coord, System::Duration delta) {
+inline void runSystem(S &sys, Coordinator &coord, Duration delta) {
   sys.run(coord.systems.systemInterests[sys.id], coord, delta);
 }
 

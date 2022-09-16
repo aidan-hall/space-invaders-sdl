@@ -3,6 +3,7 @@
 
 #include <SDL_render.h>
 #include <glm/ext/vector_float2.hpp>
+#include <tecs.hpp>
 
 struct Position {
   glm::vec2 p;
@@ -23,8 +24,8 @@ struct Animation {
   SDL_Rect src_rect;
   int step;
   int n_steps;
-  int frames_per_step;
-  int current_step_frames;
+  Tecs::Duration step_time;
+  Tecs::Duration current_step_time{};
 };
 struct Health {
   float current;

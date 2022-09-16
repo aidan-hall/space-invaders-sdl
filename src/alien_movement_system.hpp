@@ -7,7 +7,7 @@
 using namespace Tecs;
 // haha
 
-constexpr float ALIEN_INIT_SPEED = 0.2;
+constexpr float ALIEN_INIT_SPEED = 12;
 
 struct AlienMovementSystem : System {
   int initial_n_aliens;

@@ -8,11 +8,13 @@
 #include "sdl.hpp"
 #include <vector>
 
+using namespace std::chrono_literals;
+
 constexpr float ALIEN_SHUFFLE_DISTANCE = 200.0;
 constexpr float ALIEN_DROP_DISTANCE = 10.0;
-constexpr float ALIEN_SPEED_INCREMENT = 0.03;
-constexpr float MAX_FRAMES_PER_STEP = 30;
-constexpr float MIN_FRAMES_PER_STEP = 3;
+constexpr float ALIEN_SPEED_INCREMENT = 1.8;
+constexpr Duration MAX_STEP_DURATION = 500ms;
+constexpr Duration MIN_STEP_DURATION = 50ms;
 
 void AlienMovementSystem::run(const std::set<Entity> &entities,
                               Coordinator &ecs, const Duration delta) {
@@ -27,8 +29,8 @@ void AlienMovementSystem::run(const std::set<Entity> &entities,
       pos.y += ALIEN_DROP_DISTANCE;
       vel.x = -alien_speed;
     }
-    ecs.getComponent<Animation>(e).frames_per_step =
-        MIN_FRAMES_PER_STEP + (MAX_FRAMES_PER_STEP - MIN_FRAMES_PER_STEP) *
+    ecs.getComponent<Animation>(e).step_time =
+        MIN_STEP_DURATION + (MAX_STEP_DURATION - MIN_STEP_DURATION) *
       ((float)current_n_aliens / (float)initial_n_aliens);
   }
 

@@ -17,7 +17,6 @@
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
-#include <glm/geometric.hpp>
 #include <glm/glm.hpp>
 #include <iostream>
 #include <random>
@@ -28,11 +27,12 @@
 #include <vector>
 
 using namespace Tecs;
+using namespace std::literals::chrono_literals;
 
 using LayerMask = std::bitset<8>;
 
 struct CollisionBounds {
-  glm::vec2 spacing;
+  glm::vec2 spacing{};
   LayerMask layer;
   [[nodiscard]] inline Rectangle rectangle(const Position &pos) const {
     return {pos.p.x - spacing.x, pos.p.y - spacing.y, spacing.x * 2,
@@ -45,6 +45,10 @@ struct CollisionBounds {
     return sdl_rectangle;
   }
 };
+
+// Framerate.
+
+constexpr Duration FRAME_DURATION = 1.0s / 60;
 
 // Sounds
 Mix_Chunk *sound_shoot = nullptr;
@@ -88,9 +92,22 @@ Entity makeBullet(Coordinator &ecs, Position initPos, Velocity initVel,
                   int animation_steps) {
   Mix_PlayChannel(-1, sound_shoot, 0);
   auto bullet = ecs.newEntity();
-  makeAnimatedSprite(bullet, ecs, initPos, texture,
-                     {{0, 0, 4, 8}, 0, animation_steps, 5, 0});
-
+  {
+    using namespace std::chrono;
+    Animation bullet_animation = {
+        {
+            0,
+            0,
+            4,
+            8,
+        },
+        0,
+        animation_steps,
+        {},
+        5 * FRAME_DURATION,
+    };
+    makeAnimatedSprite(bullet, ecs, initPos, texture, bullet_animation);
+  }
   ecs.addComponent<Velocity>(bullet);
   ecs.getComponent<Velocity>(bullet) = {initVel};
   ecs.addComponent<Health>(bullet);
@@ -103,16 +120,11 @@ Entity makeBullet(Coordinator &ecs, Position initPos, Velocity initVel,
 
 struct AlienEncroachmentSystem : System {
   int border;
-  int screen_width;
-  SDL_Renderer *renderer;
   AlienEncroachmentSystem(const Tecs::Signature &sig, Tecs::Coordinator &coord,
-                          const SDL::Context &sdl)
-      : System(sig, coord), border{sdl.windowDimensions.h - 80},
-        screen_width{sdl.windowDimensions.w}, renderer{sdl.renderer} {}
+                          const int window_height)
+      : System(sig, coord), border{window_height - 80} {}
   void run(const std::set<Entity> &aliens, Coordinator &ecs,
            const Duration delta) override {
-    SDL_SetRenderDrawColor(renderer, 0xFF, 0x00, 0x00, 0x00);
-    SDL_RenderDrawLine(renderer, 0, border, screen_width, border);
     for (const auto &e : aliens) {
       if (ecs.getComponent<Position>(e).p.y > border) {
         events.push_back(GameEvent::GameOver);
@@ -210,7 +222,7 @@ struct HealthBarSystem : System {
 
 struct PlayerControlSystem : System {
   const int window_width;
-  static constexpr Duration FIRE_FREQUENCY = std::chrono::milliseconds(500);
+  static constexpr Duration FIRE_FREQUENCY = 500ms;
   Duration shot_delta{FIRE_FREQUENCY};
   SDL_Texture *bullet_texture;
 
@@ -221,7 +233,7 @@ struct PlayerControlSystem : System {
   void run(const std::set<Entity> &entities, Coordinator &ecs,
            const Duration delta) override {
     const auto *const keyboardState = SDL_GetKeyboardState(nullptr);
-    constexpr float PLAYER_MAX_SPEED = 5.0;
+    constexpr float PLAYER_MAX_SPEED = 300;
     for (const auto &e : entities) {
       auto &[velocity] = ecs.getComponent<Velocity>(e);
 
@@ -239,7 +251,7 @@ struct PlayerControlSystem : System {
       shot_delta += delta;
 
       if (keyboardState[SDL_SCANCODE_SPACE] && shot_delta >= FIRE_FREQUENCY) {
-        makeBullet(ecs, pos, {{0, -8}}, bullet_texture, {{2, 4}, 0x1}, 2);
+        makeBullet(ecs, pos, {{0, -480}}, bullet_texture, {{2, 4}, 0x1}, 2);
         shot_delta = Duration::zero();
       }
 
@@ -261,7 +273,10 @@ struct VelocitySystem : public System {
     for (const auto &e : entities) {
       auto &[pos] = ecs.getComponent<Position>(e);
       const auto &[vel] = ecs.getComponent<Velocity>(e);
-      pos += vel;
+
+      glm::vec2 displacement = vel;
+      displacement *= delta.count();
+      pos += displacement;
     }
   }
 };
@@ -325,9 +340,9 @@ struct AnimatedSpriteRenderingSystem : System {
       auto &animation = ecs.getComponent<Animation>(e);
 
       // Update animation step & step frames as appropriate.
-      if (animation.current_step_frames >= animation.frames_per_step) {
+      if (animation.current_step_time >= animation.step_time) {
         animation.step++;
-        animation.current_step_frames = 0;
+        animation.current_step_time -= animation.step_time;
 
         if (animation.step >= animation.n_steps) {
           animation.step = 0;
@@ -346,7 +361,7 @@ struct AnimatedSpriteRenderingSystem : System {
       SDL_RenderCopy(renderer, render_copy.texture, &animation.src_rect,
                      &renderRect);
 
-      animation.current_step_frames++;
+      animation.current_step_time += delta;
     }
   }
 };
@@ -369,7 +384,7 @@ struct EnemyShootingSystem : System {
       // Generate a binomially distributed random number indicating how many
       // aliens to go along before firing.
       if (nextFire <= 0) {
-        makeBullet(ecs, ecs.getComponent<Position>(e), {{0, 6}}, enemyBullet,
+        makeBullet(ecs, ecs.getComponent<Position>(e), {{0, 360}}, enemyBullet,
                    {{2, 4}, 0x2}, 6);
         nextFire = firing(gen);
       } else {
@@ -378,13 +393,6 @@ struct EnemyShootingSystem : System {
     }
   }
 };
-
-// Framerate.
-
-constexpr int32_t SCREEN_FPS = 60;
-constexpr int32_t SCREEN_TICKS_PER_FRAME = 1000 / SCREEN_FPS;
-constexpr std::chrono::milliseconds CHRONO_SCREEN_TICKS_PER_FRAME(1000 /
-                                                                  SCREEN_FPS);
 
 // Scores
 uint32_t player_score = 0;
@@ -438,8 +446,8 @@ GameEvent title_screen(SDL::Context &sdl, const std::string &subtitle,
   bool finished = false;
 
   const SDL_Rect player_pos = centered_rectangle({sdl.windowDimensions.w / 2,
-                               sdl.windowDimensions.h - 40, PLAYER_WIDTH,
-                               PLAYER_HEIGHT});
+                                                  sdl.windowDimensions.h - 40,
+                                                  PLAYER_WIDTH, PLAYER_HEIGHT});
 
   while (!finished) {
     SDL_Event event;
@@ -530,22 +538,33 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
   std::vector<SDL_Texture *> alien_textures =
       sdl.loadTextures({"art/alien1.png", "art/alien2.png", "art/alien3.png"});
   std::vector<Entity> aliens;
-  Animation alien_animation = {{0, 0, 32, 32}, 0, 2, 20, 0};
+  Animation alien_animation = {
+      {
+          0,
+          0,
+          32,
+          32,
+      },
+      0,
+      2,
+      Duration(0.5s),
+      {},
+  };
+
   std::random_device rd;
   std::default_random_engine eng(rd());
-  std::uniform_int_distribution<int> step_frames_rng(
-      1, alien_animation.frames_per_step);
+  std::uniform_real_distribution<Duration::rep> step_frames_rng(
+      FRAME_DURATION.count(), alien_animation.step_time.count());
   for (int j = 1; j <= alien_rows; ++j) {
     for (int i = 1; i <= alien_columns; ++i) {
       auto alien = ecs.newEntity();
       glm::vec2 pos = {i * 50 + j * 2, j * 60};
+      alien_animation.current_step_time = Duration(step_frames_rng(eng));
+      std::cout << "This alien's initial step time will be: " << alien_animation.current_step_time << std::endl;
       makeAnimatedSprite(
           alien, ecs, {{pos.x + j * 20, pos.y}},
           alien_textures[alien_textures.size() * (j - 1) / alien_rows],
           alien_animation);
-      alien_animation.step =
-          (alien_animation.step + 1) % alien_animation.n_steps;
-      alien_animation.current_step_frames = step_frames_rng(eng);
       ecs.addComponent<Alien>(alien);
       ecs.getComponent<Alien>(alien).start_x = pos.x;
       // Off-sets the rows.
@@ -623,7 +642,8 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
                                   ecs);
 
   AlienEncroachmentSystem alienEncroachmentSystem(
-      componentsSignature({ALIEN_COMPONENT, POSITION_COMPONENT}), ecs, sdl);
+      componentsSignature({ALIEN_COMPONENT, POSITION_COMPONENT}), ecs,
+      sdl.windowDimensions.h);
 
   OffscreenSystem offscreenSystem(componentsSignature({POSITION_COMPONENT}),
                                   ecs, sdl.windowDimensions);
@@ -632,11 +652,11 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
 
   bool quit = false;
 
-  auto previous_tick = std::chrono::system_clock::now();
+  auto previous_tick = TimePoint::clock::now() - FRAME_DURATION;
 
   while (!quit) {
 
-    auto tick = std::chrono::system_clock::now();
+    auto tick = TimePoint::clock::now();
 
     SDL_Event e;
     while (SDL_PollEvent(&e) != 0) {
@@ -652,22 +672,26 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
     const auto delta = tick - previous_tick;
     runSystem(playerControlSystem, ecs, delta);
     runSystem(alienMovementSystem, ecs, delta);
-    runSystem(velocitySystem, ecs, delta);
     runSystem(enemyShootingSystem, ecs, delta);
-
-    // Rendering
-    SDL_SetRenderDrawColor(sdl.renderer, 0x00, 0x00, 0x00, 0x00);
-    sdl.renderClear();
+    runSystem(velocitySystem, ecs, delta);
 
     runSystem(collisionSystem, ecs, delta);
     runSystem(alienEncroachmentSystem, ecs, delta);
+    runSystem(offscreenSystem, ecs, delta);
+    runSystem(deathSystem, ecs, delta);
+
+    SDL_SetRenderDrawColor(sdl.renderer, 0x00, 0x00, 0x00, 0x00);
+    sdl.renderClear();
+
+    // Border
+    SDL_SetRenderDrawColor(sdl.renderer, 0xFF, 0x00, 0x00, 0x00);
+    SDL_RenderDrawLine(sdl.renderer, 0, alienEncroachmentSystem.border,
+                       sdl.windowDimensions.w, alienEncroachmentSystem.border);
 
     runSystem(staticSpriteRenderingSystem, ecs, delta);
     runSystem(animatedSpriteRenderingSystem, ecs, delta);
     runSystem(healthBarSystem, ecs, delta);
-    runSystem(offscreenSystem, ecs, delta);
-
-    runSystem(deathSystem, ecs, delta);
+    sdl.renderPresent();
 
     // Process events
     for (const auto &event : events) {
@@ -692,13 +716,10 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
     }
     events.clear();
 
-    sdl.renderPresent();
-
     ecs.destroyQueued();
 
     previous_tick = tick;
-    std::this_thread::sleep_until(tick+
-                                  CHRONO_SCREEN_TICKS_PER_FRAME);
+    std::this_thread::sleep_until(tick + FRAME_DURATION);
   }
 
   return GameEvent::Quit;
@@ -750,8 +771,10 @@ int main() {
     }
 
     if (res == GameEvent::Win) {
-      res = title_screen(sdl, "Finished Level: " + std::to_string(level) +
-                         ", Score: " + std::to_string(player_score), player_texture);
+      res = title_screen(sdl,
+                         "Finished Level: " + std::to_string(level) +
+                             ", Score: " + std::to_string(player_score),
+                         player_texture);
       level += 1;
     } else if (res == GameEvent::GameOver) {
       res = title_screen(sdl, "Game Over", player_texture);
