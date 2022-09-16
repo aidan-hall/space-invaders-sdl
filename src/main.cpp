@@ -726,12 +726,13 @@ int main() {
   while (res != GameEvent::Quit) {
     // Level starts at 1 but ALIEN_ROWS should apply to level 1.
     res = gameplay(sdl, ALIEN_ROWS - 1 + level, ALIEN_COLUMNS, level);
-    if (player_score > high_scores.back()) {
+    if (player_score > high_scores.back() && res != GameEvent::Win) {
       high_scores.back() = player_score;
       std::ranges::sort(high_scores, std::greater<>());
     }
+
     if (res == GameEvent::Win) {
-      res = title_screen(sdl, "Finished Level: " + std::to_string(level));
+      res = title_screen(sdl, "Finished Level: " + std::to_string(level) + ", Score: " + std::to_string(player_score));
       level += 1;
     } else if (res == GameEvent::GameOver) {
       res = title_screen(sdl, "Game Over");
