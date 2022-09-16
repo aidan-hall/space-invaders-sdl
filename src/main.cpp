@@ -109,7 +109,8 @@ struct AlienEncroachmentSystem : System {
                           const SDL::Context &sdl)
       : System(sig, coord), border{sdl.windowDimensions.h - 80},
         screen_width{sdl.windowDimensions.w}, renderer{sdl.renderer} {}
-  void run(const std::set<Entity> &aliens, Coordinator &ecs) override {
+  void run(const std::set<Entity> &aliens, Coordinator &ecs,
+           const Duration delta) override {
     SDL_SetRenderDrawColor(renderer, 0xFF, 0x00, 0x00, 0x00);
     SDL_RenderDrawLine(renderer, 0, border, screen_width, border);
     for (const auto &e : aliens) {
@@ -122,7 +123,8 @@ struct AlienEncroachmentSystem : System {
 struct DeathSystem : System {
   using System::System;
 
-  void run(const std::set<Entity> &entities, Coordinator &ecs) override {
+  void run(const std::set<Entity> &entities, Coordinator &ecs,
+           const Duration delta) override {
     for (const auto &e : entities) {
       const auto &health = ecs.getComponent<Health>(e);
       if (health.current <= 0.0) {
@@ -145,7 +147,8 @@ constexpr int ALIEN_COLUMNS = 20;
 
 struct CollisionSystem : System {
   using System::System;
-  void run(const std::set<Entity> &entities, Coordinator &ecs) override {
+  void run(const std::set<Entity> &entities, Coordinator &ecs,
+           const Duration delta) override {
     for (const auto &a : entities) {
       const auto &aPos = ecs.getComponent<Position>(a);
       const auto &aBounds = ecs.getComponent<CollisionBounds>(a);
@@ -177,7 +180,8 @@ struct HealthBarSystem : System {
   HealthBarSystem(Signature sig, Coordinator &coord, SDL_Renderer *renderer)
       : System(sig, coord), renderer{renderer} {}
 
-  void run(const std::set<Entity> &entities, Coordinator &ecs) override {
+  void run(const std::set<Entity> &entities, Coordinator &ecs,
+           const Duration delta) override {
     constexpr int BAR_HEIGHT = 5;
     constexpr int BAR_LENGTH = 30;
     SDL_Rect current_bar;
@@ -206,14 +210,16 @@ struct HealthBarSystem : System {
 
 struct PlayerControlSystem : System {
   const int window_width;
-  std::chrono::system_clock::time_point last_shot;
+  static constexpr Duration FIRE_FREQUENCY = std::chrono::milliseconds(500);
+  Duration shot_delta{FIRE_FREQUENCY};
   SDL_Texture *bullet_texture;
 
   PlayerControlSystem(const Signature &sig, Coordinator &coord,
                       const int windowWidth, SDL_Texture *bullet_texture)
       : System(sig, coord), window_width(windowWidth),
         bullet_texture(bullet_texture) {}
-  void run(const std::set<Entity> &entities, Coordinator &ecs) override {
+  void run(const std::set<Entity> &entities, Coordinator &ecs,
+           const Duration delta) override {
     const auto *const keyboardState = SDL_GetKeyboardState(nullptr);
     constexpr float PLAYER_MAX_SPEED = 5.0;
     for (const auto &e : entities) {
@@ -229,14 +235,12 @@ struct PlayerControlSystem : System {
 
       auto &pos = ecs.getComponent<Position>(e);
 
-      // TODO: Needing to call this in here suggests a future design pattern
-      // where Systems receive the current tick as a parameter.
-      auto tick = std::chrono::high_resolution_clock::now();
+      // Handle firing.
+      shot_delta += delta;
 
-      if (keyboardState[SDL_SCANCODE_SPACE] &&
-          tick > last_shot + std::chrono::milliseconds(500)) {
+      if (keyboardState[SDL_SCANCODE_SPACE] && shot_delta >= FIRE_FREQUENCY) {
         makeBullet(ecs, pos, {{0, -8}}, bullet_texture, {{2, 4}, 0x1}, 2);
-        last_shot = tick;
+        shot_delta = Duration::zero();
       }
 
       constexpr int WINDOW_MARGIN = 50;
@@ -252,7 +256,8 @@ struct PlayerControlSystem : System {
 };
 struct VelocitySystem : public System {
   using System::System;
-  void run(const std::set<Entity> &entities, Coordinator &ecs) override {
+  void run(const std::set<Entity> &entities, Coordinator &ecs,
+           const Duration delta) override {
     for (const auto &e : entities) {
       auto &[pos] = ecs.getComponent<Position>(e);
       const auto &[vel] = ecs.getComponent<Velocity>(e);
@@ -269,7 +274,8 @@ struct OffscreenSystem : System {
                                 0, 0, static_cast<float>(screen_dimensions.w),
                                 static_cast<float>(screen_dimensions.h)} {}
 
-  void run(const std::set<Entity> &entities, Coordinator &ecs) override {
+  void run(const std::set<Entity> &entities, Coordinator &ecs,
+           const Duration delta) override {
     for (const auto &e : entities) {
       if (not pointInRectangle(screen_space, ecs.getComponent<Position>(e))) {
         ecs.queueDestroyEntity(e);
@@ -286,7 +292,8 @@ constexpr SDL_Rect centered_rectangle(SDL_Rect rect) {
 struct StaticSpriteRenderingSystem : System {
   SDL_Renderer *renderer = nullptr;
 
-  void run(const std::set<Entity> &entities, Coordinator &ecs) override {
+  void run(const std::set<Entity> &entities, Coordinator &ecs,
+           const Duration delta) override {
     for (const auto &e : entities) {
       const auto &[pos] = ecs.getComponent<Position>(e);
       const auto &render_copy = ecs.getComponent<RenderCopy>(e);
@@ -312,7 +319,8 @@ struct AnimatedSpriteRenderingSystem : System {
                                 SDL_Renderer *renderer)
       : System(sig, coord), renderer(renderer) {}
 
-  void run(const std::set<Entity> &entities, Coordinator &ecs) override {
+  void run(const std::set<Entity> &entities, Coordinator &ecs,
+           const Duration delta) override {
     for (const auto &e : entities) {
       auto &animation = ecs.getComponent<Animation>(e);
 
@@ -355,7 +363,8 @@ struct EnemyShootingSystem : System {
   std::mt19937 gen;
   std::binomial_distribution<> firing;
   int nextFire = 0;
-  void run(const std::set<Entity> &entities, Coordinator &ecs) override {
+  void run(const std::set<Entity> &entities, Coordinator &ecs,
+           const Duration delta) override {
     for (const auto &e : entities) {
       // Generate a binomially distributed random number indicating how many
       // aliens to go along before firing.
@@ -641,24 +650,24 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
     }
 
     const auto delta = tick - previous_tick;
-    runSystem(playerControlSystem, ecs);
-    runSystem(alienMovementSystem, ecs);
-    runSystem(velocitySystem, ecs);
-    runSystem(enemyShootingSystem, ecs);
+    runSystem(playerControlSystem, ecs, delta);
+    runSystem(alienMovementSystem, ecs, delta);
+    runSystem(velocitySystem, ecs, delta);
+    runSystem(enemyShootingSystem, ecs, delta);
 
     // Rendering
     SDL_SetRenderDrawColor(sdl.renderer, 0x00, 0x00, 0x00, 0x00);
     sdl.renderClear();
 
-    runSystem(collisionSystem, ecs);
-    runSystem(alienEncroachmentSystem, ecs);
+    runSystem(collisionSystem, ecs, delta);
+    runSystem(alienEncroachmentSystem, ecs, delta);
 
-    runSystem(staticSpriteRenderingSystem, ecs);
-    runSystem(animatedSpriteRenderingSystem, ecs);
-    runSystem(healthBarSystem, ecs);
-    runSystem(offscreenSystem, ecs);
+    runSystem(staticSpriteRenderingSystem, ecs, delta);
+    runSystem(animatedSpriteRenderingSystem, ecs, delta);
+    runSystem(healthBarSystem, ecs, delta);
+    runSystem(offscreenSystem, ecs, delta);
 
-    runSystem(deathSystem, ecs);
+    runSystem(deathSystem, ecs, delta);
 
     // Process events
     for (const auto &event : events) {
@@ -687,6 +696,7 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
 
     ecs.destroyQueued();
 
+    previous_tick = tick;
     std::this_thread::sleep_until(tick+
                                   CHRONO_SCREEN_TICKS_PER_FRAME);
   }

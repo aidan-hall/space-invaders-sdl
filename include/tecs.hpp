@@ -3,6 +3,7 @@
 
 #include <bitset>
 #include <cassert>
+#include <chrono>
 #include <concepts>
 #include <cstdint>
 #include <set>
@@ -48,8 +49,9 @@ struct SystemManager {
   std::vector<std::set<Entity>> systemInterests;
   std::vector<Signature> systemSignatures;
 
-  SystemId registerSystem(const std::vector<ComponentMask> &entitySignatures,
-                          const Signature &sig) {
+  SystemId registerSystem(
+      const std::vector<std::pair<Entity, ComponentMask>> &entitySignatures,
+      const Signature &sig) {
     const auto interests = deriveInterests(entitySignatures, sig);
     systemInterests.push_back(interests);
     systemSignatures.push_back(sig);
@@ -57,31 +59,32 @@ struct SystemManager {
     return nextSystem++;
   }
 
-  // Whether an entity with the given Signature would be interesting to the
-  // given system.
-  static inline bool isInteresting(const ComponentMask &entity,
+  // Whether a mask with the given Signature would be interesting to the given
+  // system.
+  static inline bool isInteresting(const ComponentMask &mask,
                                    const Signature &system) {
-    return ((entity & system.include) == system.include) &&
-           ((entity & system.exclude) == 0);
+    return ((mask & system.include) == system.include) &&
+           ((mask & system.exclude) == 0);
   }
 
   // Derive which entities a System with the given Signature would be interested
   // in.
-  static std::set<Entity>
-  deriveInterests(const std::vector<ComponentMask> &entitySignatures,
-                  const Signature &sig) {
+  static std::set<Entity> deriveInterests(
+      const std::vector<std::pair<Entity, ComponentMask>> &entitySignatures,
+      const Signature &sig) {
     std::set<Entity> interests;
-    for (Entity i = 0; i < entitySignatures.size(); ++i) {
-      if (isInteresting(entitySignatures[i], sig)) {
-        interests.insert(i);
+    for (auto &[entity, mask] : entitySignatures) {
+      if (isInteresting(mask, sig)) {
+        interests.insert(entity);
       }
     }
 
     return interests;
   }
 
-  void updateInterests(const std::vector<ComponentMask> &entitySignatures,
-                       SystemId system) {
+  void updateInterests(
+      const std::vector<std::pair<Entity, ComponentMask>> &entitySignatures,
+      SystemId system) {
     systemInterests[system] =
         deriveInterests(entitySignatures, systemSignatures[system]);
   }
@@ -183,8 +186,10 @@ template <> inline bool Coordinator::hasComponent<ComponentMask>(Entity e) {
 
 struct System {
   SystemId id;
+  using Duration = std::chrono::system_clock::duration;
 
-  virtual void run(const std::set<Entity> &entities, Coordinator &coord) = 0;
+  virtual void run(const std::set<Entity> &entities, Coordinator &coord,
+                   const Duration delta) = 0;
 
   explicit System(const Signature &sig, Coordinator &coord);
 };
@@ -194,8 +199,9 @@ inline void Coordinator::registerSystem(System &sys, const Signature &sig) {
 }
 
 // Pretty much just a utility, and I desperately want to avoid vtable lookup.
-template <typename S> inline void runSystem(S &sys, Coordinator &coord) {
-  sys.run(coord.systems.systemInterests[sys.id], coord);
+template <typename S>
+inline void runSystem(S &sys, Coordinator &coord, System::Duration delta) {
+  sys.run(coord.systems.systemInterests[sys.id], coord, delta);
 }
 
 } // namespace Tecs

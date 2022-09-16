@@ -1,6 +1,7 @@
 #include <cassert>
 #include <typeindex>
 #include <tecs.hpp>
+#include <algorithm>
 
 using namespace Tecs;
 
@@ -17,7 +18,15 @@ Coordinator::Coordinator() {
 SystemId Coordinator::registerSystem(const Signature &sig) {
   auto signatures = getComponents<ComponentMask>();
 
-  auto s = systems.registerSystem(signatures, sig);
+  std::vector<std::pair<Entity, ComponentMask>> entityMaskPairs;
+
+  // Got to wait for C++23 for zip.
+  Entity entity = 0;
+  std::transform(signatures.begin(), signatures.end(), std::back_inserter(entityMaskPairs),
+                 [&entity](ComponentMask mask) {
+                   return std::pair{entity++, mask};
+                 });
+  auto s = systems.registerSystem(entityMaskPairs, sig);
 
   return s;
 }

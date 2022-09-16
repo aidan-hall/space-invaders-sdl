@@ -15,7 +15,7 @@ constexpr float MAX_FRAMES_PER_STEP = 30;
 constexpr float MIN_FRAMES_PER_STEP = 3;
 
 void AlienMovementSystem::run(const std::set<Entity> &entities,
-                              Coordinator &ecs) {
+                              Coordinator &ecs, const Duration delta) {
   for (const auto &e : entities) {
     auto &[pos] = ecs.getComponent<Position>(e);
     auto &[vel] = ecs.getComponent<Velocity>(e);

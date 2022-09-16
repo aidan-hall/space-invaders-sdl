@@ -21,7 +21,8 @@ struct AlienMovementSystem : System {
       : System(sig, coord), initial_n_aliens(initialNAliens),
         base_alien_speed(alienSpeed), alien_speed(alienSpeed),
         current_n_aliens(initialNAliens), events(events) {}
-  void run(const std::set<Entity> &entities, Coordinator &ecs);
+  void run(const std::set<Entity> &entities, Coordinator &ecs,
+           const Duration delta);
 };
 
 #endif // GAME_ALIEN_MOVEMENT_SYSTEM_HPP
