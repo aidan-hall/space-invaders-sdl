@@ -410,8 +410,8 @@ void updateTextTexture(Coordinator &ecs, SDL::Context &sdl, Entity score_entity,
   render_copy.h = text_texture.h;
 }
 
-constexpr int32_t PLAYER_WIDTH = 64;
-constexpr int32_t PLAYER_HEIGHT = 32;
+constexpr int32_t PLAYER_WIDTH = 96;
+constexpr int32_t PLAYER_HEIGHT = 48;
 
 GameEvent title_screen(SDL::Context &sdl, const std::string &subtitle,
                        SDL_Texture *player_texture) {
@@ -502,16 +502,16 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
   auto player = ecs.newEntity();
   makeStaticSprite(player, ecs,
                    {{sdl.windowDimensions.w / 2, sdl.windowDimensions.h - 40}},
-                   player_texture, 64, 32);
+                   player_texture, PLAYER_WIDTH, PLAYER_HEIGHT);
 
   ecs.addComponent<Velocity>(player);
   ecs.addComponent<Player>(player);
   ecs.addComponent<Health>(player);
   ecs.getComponent<Health>(player) = {3.0, 3.0};
   ecs.addComponent<HealthBar>(player);
-  ecs.getComponent<HealthBar>(player) = {25.0};
+  ecs.getComponent<HealthBar>(player) = {35.0};
   ecs.addComponent<CollisionBounds>(player);
-  ecs.getComponent<CollisionBounds>(player) = {{32, 16}, 0x2 | 0x4};
+  ecs.getComponent<CollisionBounds>(player) = {{PLAYER_WIDTH/2, PLAYER_HEIGHT/2}, 0x2 | 0x4};
 
   // Add level text box.
   Entity level_text_entity = ecs.newEntity();
