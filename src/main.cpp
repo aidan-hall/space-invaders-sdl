@@ -213,30 +213,25 @@ struct PlayerControlSystem : System {
   void run(const std::set<Entity> &entities, Coordinator &ecs) override {
     const auto *const keyboardState = SDL_GetKeyboardState(nullptr);
     constexpr float PLAYER_MAX_SPEED = 5.0;
-    constexpr float PLAYER_MAX_SPEED_SQUARED =
-        PLAYER_MAX_SPEED * PLAYER_MAX_SPEED;
     for (const auto &e : entities) {
       auto &[velocity] = ecs.getComponent<Velocity>(e);
       if (keyboardState[SDL_SCANCODE_LEFT]) {
-        velocity.x -= 0.2;
+        velocity.x = -PLAYER_MAX_SPEED;
       } else if (keyboardState[SDL_SCANCODE_RIGHT]) {
-        velocity.x += 0.2;
+        velocity.x = PLAYER_MAX_SPEED;
       } else {
-        velocity.x *= 0.9;
+        velocity.x = 0;
       }
 
       auto &pos = ecs.getComponent<Position>(e).p;
 
       constexpr int WINDOW_MARGIN = 50;
-      if (pos.x > window_width - WINDOW_MARGIN) {
-        pos.x = window_width - WINDOW_MARGIN;
+      if (pos.x > (float)window_width - WINDOW_MARGIN) {
+        pos.x = (float)window_width - WINDOW_MARGIN;
         velocity.x = 0;
       } else if (pos.x < WINDOW_MARGIN) {
         pos.x = WINDOW_MARGIN;
         velocity.x = 0;
-      } else if (velocity.x * velocity.x + velocity.y * velocity.y >=
-                 PLAYER_MAX_SPEED_SQUARED) {
-        velocity = glm::normalize(velocity) * PLAYER_MAX_SPEED;
       }
     }
   }
