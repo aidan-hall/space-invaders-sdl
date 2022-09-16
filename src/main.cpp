@@ -206,15 +206,19 @@ struct HealthBarSystem : System {
 
 struct PlayerControlSystem : System {
   const int window_width;
+  std::chrono::system_clock::time_point last_shot;
+  SDL_Texture *bullet_texture;
 
   PlayerControlSystem(const Signature &sig, Coordinator &coord,
-                      const int windowWidth)
-      : System(sig, coord), window_width(windowWidth) {}
+                      const int windowWidth, SDL_Texture *bullet_texture)
+      : System(sig, coord), window_width(windowWidth),
+        bullet_texture(bullet_texture) {}
   void run(const std::set<Entity> &entities, Coordinator &ecs) override {
     const auto *const keyboardState = SDL_GetKeyboardState(nullptr);
     constexpr float PLAYER_MAX_SPEED = 5.0;
     for (const auto &e : entities) {
       auto &[velocity] = ecs.getComponent<Velocity>(e);
+
       if (keyboardState[SDL_SCANCODE_LEFT]) {
         velocity.x = -PLAYER_MAX_SPEED;
       } else if (keyboardState[SDL_SCANCODE_RIGHT]) {
@@ -223,14 +227,24 @@ struct PlayerControlSystem : System {
         velocity.x = 0;
       }
 
-      auto &pos = ecs.getComponent<Position>(e).p;
+      auto &pos = ecs.getComponent<Position>(e);
+
+      // TODO: Needing to call this in here suggests a future design pattern
+      // where Systems receive the current tick as a parameter.
+      auto tick = std::chrono::high_resolution_clock::now();
+
+      if (keyboardState[SDL_SCANCODE_SPACE] &&
+          tick > last_shot + std::chrono::milliseconds(500)) {
+        makeBullet(ecs, pos, {{0, -8}}, bullet_texture, {{2, 4}, 0x1}, 2);
+        last_shot = tick;
+      }
 
       constexpr int WINDOW_MARGIN = 50;
-      if (pos.x > (float)window_width - WINDOW_MARGIN) {
-        pos.x = (float)window_width - WINDOW_MARGIN;
+      if (pos.p.x > (float)window_width - WINDOW_MARGIN) {
+        pos.p.x = (float)window_width - WINDOW_MARGIN;
         velocity.x = 0;
-      } else if (pos.x < WINDOW_MARGIN) {
-        pos.x = WINDOW_MARGIN;
+      } else if (pos.p.x < WINDOW_MARGIN) {
+        pos.p.x = WINDOW_MARGIN;
         velocity.x = 0;
       }
     }
@@ -265,7 +279,7 @@ struct OffscreenSystem : System {
 };
 
 // Return the input rectangle, with its centre where its top left corner was.
-SDL_Rect centered_rectangle(SDL_Rect rect) {
+constexpr SDL_Rect centered_rectangle(SDL_Rect rect) {
   return {rect.x - rect.w / 2, rect.y - rect.h / 2, rect.w, rect.h};
 }
 
@@ -543,16 +557,13 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
         {BARRIER_SCALE * 16, BARRIER_SCALE * 8}, 0x3 | 0x4};
   }
 
-  // Load bullet sprite.
-  SDL_Texture *bulletTexture = sdl.loadTexture("art/bullet.png");
-
   VelocitySystem velocitySystem(
       componentsSignature({VELOCITY_COMPONENT, POSITION_COMPONENT}), ecs);
 
   PlayerControlSystem playerControlSystem(
       componentsSignature(
           {PLAYER_COMPONENT, VELOCITY_COMPONENT, POSITION_COMPONENT}),
-      ecs, sdl.windowDimensions.w);
+      ecs, sdl.windowDimensions.w, sdl.loadTexture("art/bullet.png"));
 
   AlienMovementSystem alienMovementSystem(
       componentsSignature(
@@ -596,34 +607,16 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
 
   printf("ECS initialised\n");
 
-  auto last_shot = std::chrono::high_resolution_clock::now();
-
   bool quit = false;
 
   while (!quit) {
 
-    auto tick = std::chrono::high_resolution_clock::now();
     SDL_Event e;
     while (SDL_PollEvent(&e) != 0) {
       switch ((SDL_EventType)e.type) {
       case SDL_QUIT:
         return GameEvent::Quit;
         break;
-      case SDL_KEYDOWN: {
-        switch (e.key.keysym.sym) {
-        case SDLK_SPACE:
-          // Limit bullet firing to once every N milliseconds, and don't fire on
-          // key repeat.
-          if (e.key.repeat == 0 &&
-              tick > last_shot + std::chrono::milliseconds(500)) {
-            makeBullet(ecs, ecs.getComponent<Position>(player), {{0, -8}},
-                       bulletTexture, {{2, 4}, 0x1}, 2);
-            last_shot = tick;
-          }
-          break;
-        }
-        break;
-      }
       default:
         break;
       }
@@ -675,8 +668,8 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
 
     ecs.destroyQueued();
 
-    std::this_thread::sleep_until(
-        tick + std::chrono::milliseconds(SCREEN_TICKS_PER_FRAME));
+    std::this_thread::sleep_until(std::chrono::system_clock::now() +
+                                  CHRONO_SCREEN_TICKS_PER_FRAME);
   }
 
   return GameEvent::Quit;
