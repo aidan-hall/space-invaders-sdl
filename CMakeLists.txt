@@ -23,7 +23,8 @@ target_link_libraries(Game PRIVATE SDL2::SDL2)
 target_link_libraries(Game PRIVATE SDL2_image)
 target_link_libraries(Game PRIVATE SDL2_ttf)
 target_link_libraries(Game PRIVATE SDL2_mixer)
-find_package(glm REQUIRED)
+
+add_subdirectory("${CMAKE_SOURCE_DIR}/external/glm")
 target_link_libraries(Game PRIVATE glm)
 
 # Installation.
