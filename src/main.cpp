@@ -274,9 +274,7 @@ struct VelocitySystem : public System {
       auto &[pos] = ecs.getComponent<Position>(e);
       const auto &[vel] = ecs.getComponent<Velocity>(e);
 
-      glm::vec2 displacement = vel;
-      displacement *= delta.count();
-      pos += displacement;
+      pos += vel * (float)delta.count();
     }
   }
 };
