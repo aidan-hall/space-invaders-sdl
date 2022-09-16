@@ -374,6 +374,8 @@ struct EnemyShootingSystem : System {
 
 constexpr int32_t SCREEN_FPS = 60;
 constexpr int32_t SCREEN_TICKS_PER_FRAME = 1000 / SCREEN_FPS;
+constexpr std::chrono::milliseconds CHRONO_SCREEN_TICKS_PER_FRAME(1000 /
+                                                                  SCREEN_FPS);
 
 // Scores
 uint32_t player_score = 0;
@@ -391,7 +393,11 @@ void updateTextTexture(Coordinator &ecs, SDL::Context &sdl, Entity score_entity,
   render_copy.h = text_texture.h;
 }
 
-GameEvent title_screen(SDL::Context &sdl, const std::string &subtitle) {
+constexpr int32_t PLAYER_WIDTH = 64;
+constexpr int32_t PLAYER_HEIGHT = 32;
+
+GameEvent title_screen(SDL::Context &sdl, const std::string &subtitle,
+                       SDL_Texture *player_texture) {
   auto makeTextBox = [&sdl](const std::string &text,
                             int x) -> std::pair<SDL_Texture *, SDL_Rect> {
     SDL::TextTexture textTexture =
@@ -421,6 +427,11 @@ GameEvent title_screen(SDL::Context &sdl, const std::string &subtitle) {
   auto highscore = makeTextBox(high_scores_string, 350);
 
   bool finished = false;
+
+  const SDL_Rect player_pos = centered_rectangle({sdl.windowDimensions.w / 2,
+                               sdl.windowDimensions.h - 40, PLAYER_WIDTH,
+                               PLAYER_HEIGHT});
+
   while (!finished) {
     SDL_Event event;
     while (SDL_PollEvent(&event) != 0) {
@@ -445,6 +456,7 @@ GameEvent title_screen(SDL::Context &sdl, const std::string &subtitle) {
     drawTextBox(subtitle_box);
     drawTextBox(controls);
     drawTextBox(highscore);
+    SDL_RenderCopy(sdl.renderer, player_texture, nullptr, &player_pos);
     sdl.renderPresent();
   }
 
@@ -507,19 +519,21 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
   // Set up aliens.
 
   std::vector<SDL_Texture *> alien_textures =
-    sdl.loadTextures({"art/alien1.png", "art/alien2.png", "art/alien3.png"});
+      sdl.loadTextures({"art/alien1.png", "art/alien2.png", "art/alien3.png"});
   std::vector<Entity> aliens;
   Animation alien_animation = {{0, 0, 32, 32}, 0, 2, 20, 0};
   std::random_device rd;
   std::default_random_engine eng(rd());
-  std::uniform_int_distribution<int> step_frames_rng(1, alien_animation.frames_per_step);
+  std::uniform_int_distribution<int> step_frames_rng(
+      1, alien_animation.frames_per_step);
   for (int j = 1; j <= alien_rows; ++j) {
     for (int i = 1; i <= alien_columns; ++i) {
       auto alien = ecs.newEntity();
       glm::vec2 pos = {i * 50 + j * 2, j * 60};
-      makeAnimatedSprite(alien, ecs, {{pos.x + j * 20, pos.y}},
-                         alien_textures[alien_textures.size() * (j-1) / alien_rows],
-                         alien_animation);
+      makeAnimatedSprite(
+          alien, ecs, {{pos.x + j * 20, pos.y}},
+          alien_textures[alien_textures.size() * (j - 1) / alien_rows],
+          alien_animation);
       alien_animation.step =
           (alien_animation.step + 1) % alien_animation.n_steps;
       alien_animation.current_step_frames = step_frames_rng(eng);
@@ -609,7 +623,11 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
 
   bool quit = false;
 
+  auto previous_tick = std::chrono::system_clock::now();
+
   while (!quit) {
+
+    auto tick = std::chrono::system_clock::now();
 
     SDL_Event e;
     while (SDL_PollEvent(&e) != 0) {
@@ -622,6 +640,7 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
       }
     }
 
+    const auto delta = tick - previous_tick;
     runSystem(playerControlSystem, ecs);
     runSystem(alienMovementSystem, ecs);
     runSystem(velocitySystem, ecs);
@@ -668,7 +687,7 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
 
     ecs.destroyQueued();
 
-    std::this_thread::sleep_until(std::chrono::system_clock::now() +
+    std::this_thread::sleep_until(tick+
                                   CHRONO_SCREEN_TICKS_PER_FRAME);
   }
 
@@ -707,7 +726,8 @@ int main() {
   printf("SDL initialised\n");
   player_texture = sdl.loadTexture("art/player.png");
 
-  GameEvent res = title_screen(sdl, "Space to shoot; Arrow Keys to move.");
+  GameEvent res =
+      title_screen(sdl, "Space to shoot; Arrow Keys to move.", player_texture);
 
   int level = 1;
 
@@ -720,10 +740,11 @@ int main() {
     }
 
     if (res == GameEvent::Win) {
-      res = title_screen(sdl, "Finished Level: " + std::to_string(level) + ", Score: " + std::to_string(player_score));
+      res = title_screen(sdl, "Finished Level: " + std::to_string(level) +
+                         ", Score: " + std::to_string(player_score), player_texture);
       level += 1;
     } else if (res == GameEvent::GameOver) {
-      res = title_screen(sdl, "Game Over");
+      res = title_screen(sdl, "Game Over", player_texture);
       level = 1;
       player_score = 0;
     }
