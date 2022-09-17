@@ -8,7 +8,7 @@ https://austinmorlan.com/posts/entity_component_system/
 I have recorded a demo of the game in action, since I can hardly
 expect you to be able to build it:
 
-https://youtu.be/KyWTbw8M7bE
+https://youtu.be/pgKXlQjLPbQ
 
 ## Building
 
