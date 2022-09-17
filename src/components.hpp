@@ -12,6 +12,7 @@ struct Velocity {
   glm::vec2 v;
 };
 struct Player {};
+struct Mothership {};
 struct Alien {
   float start_x;
 };

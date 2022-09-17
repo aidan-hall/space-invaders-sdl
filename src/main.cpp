@@ -87,6 +87,47 @@ void makeAnimatedSprite(Entity entity, Coordinator &ecs, Position initPos,
 
 std::vector<GameEvent> events;
 
+Entity makeMothership(Coordinator &ecs, SDL_Texture *texture) {
+  const Animation animation{
+      {
+          0,
+          0,
+          64,
+          32,
+      },
+      0,
+      3,
+      Duration(1.0s / 12),
+  };
+  Entity mothership = ecs.newEntity();
+
+  ecs.addComponent<Mothership>(mothership);
+
+  makeAnimatedSprite(mothership, ecs, {{0, 80}}, texture, animation);
+  ecs.addComponent<Velocity>(mothership);
+  ecs.getComponent<Velocity>(mothership) = {{100, 0}};
+  auto &render_copy = ecs.getComponent<RenderCopy>(mothership);
+  constexpr auto MOTHERSHIP_SCALE = 2;
+  render_copy.w *= MOTHERSHIP_SCALE;
+  render_copy.h *= MOTHERSHIP_SCALE;
+
+  ecs.addComponent<Health>(mothership);
+  ecs.getComponent<Health>(mothership) = {
+      4,
+      4,
+  };
+  ecs.addComponent<HealthBar>(mothership);
+  ecs.getComponent<HealthBar>(mothership) = {
+      16.0,
+  };
+  ecs.addComponent<CollisionBounds>(mothership);
+  ecs.getComponent<CollisionBounds>(mothership) = {
+      {render_copy.w / 2, render_copy.h / 2},
+      LayerMask{0x8},
+  };
+  return mothership;
+}
+
 Entity makeExplosion(Coordinator &ecs, Position initPos, SDL_Texture *texture) {
   auto explosion = ecs.newEntity();
   {
@@ -184,15 +225,17 @@ struct DeathSystem : System {
       if (health.current <= 0.0) {
         ecs.queueDestroyEntity(e);
 
-        const bool is_player = ecs.hasComponent<Player>(e);
-        if (is_player) {
+        bool is_player;
+        bool is_alien;
+        bool is_mothership;
+        if ((is_player = ecs.hasComponent<Player>(e))) {
           events.push_back(GameEvent::GameOver);
-        }
-        const bool is_alien = ecs.hasComponent<Alien>(e);
-        if (is_alien) {
+        } else if ((is_alien = ecs.hasComponent<Alien>(e))) {
           events.push_back(GameEvent::Scored);
+        } else if ((is_mothership = ecs.hasComponent<Mothership>(e))) {
+          events.push_back(GameEvent::KilledMothership);
         }
-        if (is_player || is_alien) {
+        if (is_player || is_alien || is_mothership) {
           makeExplosion(ecs, ecs.getComponent<Position>(e), explosion_texture);
         }
       }
@@ -315,7 +358,7 @@ struct PlayerControlSystem : System {
                    bullet_texture,
                    {
                        {2, 4},
-                       0x1,
+                       0x1 | 0x8,
                    },
                    2);
         shot_delta = Duration::zero();
@@ -346,6 +389,7 @@ struct VelocitySystem : public System {
 };
 struct OffscreenSystem : System {
   Rectangle screen_space;
+  Entity mothership = -1;
 
   OffscreenSystem(const Tecs::Signature &sig, Tecs::Coordinator &coord,
                   SDL_Rect &screen_dimensions)
@@ -356,8 +400,13 @@ struct OffscreenSystem : System {
   void run(const std::set<Entity> &entities, Coordinator &ecs,
            const Duration delta) override {
     for (const auto &e : entities) {
-      if (not pointInRectangle(screen_space, ecs.getComponent<Position>(e))) {
+      const auto bounds = ecs.getComponent<CollisionBounds>(e);
+      if (not rectangleIntersection(
+              screen_space, bounds.rectangle(ecs.getComponent<Position>(e)))) {
         ecs.queueDestroyEntity(e);
+        if (e == mothership) {
+          events.push_back(GameEvent::MothershipLeft);
+        }
       }
     }
   }
@@ -562,6 +611,7 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
       ecs.registerComponent<CollisionBounds>();
   const auto ANIMATION_COMPONENT = ecs.registerComponent<Animation>();
   const auto LIFETIME_COMPONENT = ecs.registerComponent<LifeTime>();
+  const auto MOTHERSHIP_COMPONENT = ecs.registerComponent<Mothership>();
 
   // Set up player.
   auto player = ecs.newEntity();
@@ -626,8 +676,6 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
       auto alien = ecs.newEntity();
       glm::vec2 pos = {i * 50 + j * 2, j * 60};
       alien_animation.current_step_time = Duration(step_frames_rng(eng));
-      std::cout << "This alien's initial step time will be: "
-                << alien_animation.current_step_time << std::endl;
       makeAnimatedSprite(
           alien, ecs, {{pos.x + j * 20, pos.y}},
           alien_textures[alien_textures.size() * (j - 1) / alien_rows],
@@ -717,8 +765,9 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
       componentsSignature({ALIEN_COMPONENT, POSITION_COMPONENT}), ecs,
       sdl.windowDimensions.h);
 
-  OffscreenSystem offscreenSystem(componentsSignature({POSITION_COMPONENT}),
-                                  ecs, sdl.windowDimensions);
+  OffscreenSystem offscreenSystem(
+      componentsSignature({POSITION_COMPONENT, COLLISION_BOUNDS_COMPONENT}),
+      ecs, sdl.windowDimensions);
 
   printf("ECS initialised\n");
 
@@ -726,6 +775,14 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
 
   auto previous_tick = TimePoint::clock::now() - FRAME_DURATION;
   auto previous_frame = TimePoint::clock::now() - FRAME_DURATION;
+
+  auto mothership_rng_engine =
+      std::default_random_engine(std::random_device()());
+  std::uniform_int_distribution<int> mothership_rng(0, 256);
+
+  auto mothership_texture = sdl.loadTexture("art/mothership.png");
+
+  bool mothership_active = false;
 
   while (!quit) {
 
@@ -743,6 +800,14 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
     }
 
     const auto delta = tick - previous_tick;
+
+    if (not mothership_active) {
+      if (mothership_rng(mothership_rng_engine) == 0) {
+        offscreenSystem.mothership = makeMothership(ecs, mothership_texture);
+        mothership_active = true;
+      }
+    }
+
     runSystem(playerControlSystem, ecs, delta);
     runSystem(alienMovementSystem, ecs, delta);
     runSystem(enemyShootingSystem, ecs, delta);
@@ -779,8 +844,15 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
         return GameEvent::GameOver;
       case GameEvent::Win:
         return GameEvent::Win;
+      case GameEvent::MothershipLeft:
+        mothership_active = false;
+        break;
+      case GameEvent::KilledMothership:
+        mothership_active = false;
+        // Hacky way of giving 10 points for a mothership.
+        player_score += 9;
+        [[fallthrough]];
       case GameEvent::Scored:
-        std::cout << "Score!\n";
         player_score += 1;
         updateTextTexture(ecs, sdl, score_entity, 0,
                           SCORE_PREFIX + std::to_string(player_score));

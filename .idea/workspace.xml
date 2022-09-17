@@ -18,10 +18,8 @@
     </configurations>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ca59b7ee-668b-4c07-bfea-5ee22d671d46" name="Changes" comment="[main] Use PLAYER_{WIDTH,HEIGHT} everywhere.">
+    <list default="true" id="ca59b7ee-668b-4c07-bfea-5ee22d671d46" name="Changes" comment="Added mothership (10 points!)">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components.hpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/components.hpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.cpp" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -99,7 +97,7 @@
       <workItem from="1663250708434" duration="10193000" />
       <workItem from="1663342430805" duration="568000" />
       <workItem from="1663343015090" duration="13941000" />
-      <workItem from="1663419921879" duration="4365000" />
+      <workItem from="1663419921879" duration="8924000" />
     </task>
     <task id="LOCAL-00001" summary="[.idea] Cleanup">
       <created>1663166027703</created>
@@ -178,7 +176,21 @@
       <option name="project" value="LOCAL" />
       <updated>1663357553838</updated>
     </task>
-    <option name="localTasksCounter" value="12" />
+    <task id="LOCAL-00012" summary="+ Explosion animation, player hit-stop.">
+      <created>1663424391023</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1663424391023</updated>
+    </task>
+    <task id="LOCAL-00013" summary="Added mothership (10 points!)">
+      <created>1663428848180</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1663428848180</updated>
+    </task>
+    <option name="localTasksCounter" value="14" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -205,6 +217,8 @@
     <MESSAGE value="[enemy-bullet] Flipped sprites&#10;&#10;The wiggling now looks right." />
     <MESSAGE value="Glorious Chrono magic!!!" />
     <MESSAGE value="[main] Use PLAYER_{WIDTH,HEIGHT} everywhere." />
-    <option name="LAST_COMMIT_MESSAGE" value="[main] Use PLAYER_{WIDTH,HEIGHT} everywhere." />
+    <MESSAGE value="+ Explosion animation, player hit-stop." />
+    <MESSAGE value="Added mothership (10 points!)" />
+    <option name="LAST_COMMIT_MESSAGE" value="Added mothership (10 points!)" />
   </component>
 </project>

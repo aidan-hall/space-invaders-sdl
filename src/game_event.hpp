@@ -4,6 +4,8 @@ enum class GameEvent {
   GameOver,
   Quit, // Called when player closes window.
   Scored,
+  KilledMothership,
+  MothershipLeft,
   Win,
   Progress, // Go to the next scene
 };
