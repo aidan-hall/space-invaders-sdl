@@ -18,7 +18,9 @@
     </configurations>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ca59b7ee-668b-4c07-bfea-5ee22d671d46" name="Changes" comment="Glorious Chrono magic!!!">
+    <list default="true" id="ca59b7ee-668b-4c07-bfea-5ee22d671d46" name="Changes" comment="[main] Use PLAYER_{WIDTH,HEIGHT} everywhere.">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components.hpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/components.hpp" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.cpp" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -50,30 +52,25 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.cidr.known.project.marker": "true",
-    "WebServerToolWindowFactoryState": "false",
-    "cf.advertisement.text.overridden": "true",
-    "cf.first.check.clang-format": "false",
-    "cidr.known.project.marker": "true",
-    "full.screen.before.presentation.mode": "false",
-    "last_opened_file_path": "/home/aidan/programming/games/sdl/galaga",
-    "nodejs_package_manager_path": "npm",
-    "run.code.analysis.last.selected.profile": "pProject Default",
-    "settings.editor.selected.configurable": "inlay.hints",
-    "structure.view.defaults.are.configured": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
+    &quot;cf.advertisement.text.overridden&quot;: &quot;true&quot;,
+    &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
+    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;full.screen.before.presentation.mode&quot;: &quot;false&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/home/aidan/programming/games/sdl/galaga&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;run.code.analysis.last.selected.profile&quot;: &quot;pProject Default&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;inlay.hints&quot;,
+    &quot;structure.view.defaults.are.configured&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RunManager" selected="CMake Application.Game">
     <configuration name="Game" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" WORKING_DIR="file://$PROJECT_DIR$" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Game" TARGET_NAME="Game" CONFIG_NAME="Debug" RUN_TARGET_PROJECT_NAME="Game" RUN_TARGET_NAME="Game">
-      <method v="2">
-        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
-      </method>
-    </configuration>
-    <configuration default="true" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
@@ -101,7 +98,8 @@
       <workItem from="1663167568259" duration="6133000" />
       <workItem from="1663250708434" duration="10193000" />
       <workItem from="1663342430805" duration="568000" />
-      <workItem from="1663343015090" duration="13337000" />
+      <workItem from="1663343015090" duration="13941000" />
+      <workItem from="1663419921879" duration="4365000" />
     </task>
     <task id="LOCAL-00001" summary="[.idea] Cleanup">
       <created>1663166027703</created>
@@ -166,7 +164,21 @@
       <option name="project" value="LOCAL" />
       <updated>1663356998983</updated>
     </task>
-    <option name="localTasksCounter" value="10" />
+    <task id="LOCAL-00010" summary="Glorious Chrono magic!!!">
+      <created>1663357139176</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1663357139176</updated>
+    </task>
+    <task id="LOCAL-00011" summary="[main] Use PLAYER_{WIDTH,HEIGHT} everywhere.">
+      <created>1663357553838</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1663357553838</updated>
+    </task>
+    <option name="localTasksCounter" value="12" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -192,6 +204,7 @@
     <MESSAGE value="Parameterised sys delta &amp; entities of signatures&#10;&#10;System run() methods now receive a time delta.&#10;System interest determination is now done&#10;using a vector&lt;pair&lt;Entity, ComponentMask&gt;,&#10;which should increase generality of the&#10;methods involved." />
     <MESSAGE value="[enemy-bullet] Flipped sprites&#10;&#10;The wiggling now looks right." />
     <MESSAGE value="Glorious Chrono magic!!!" />
-    <option name="LAST_COMMIT_MESSAGE" value="Glorious Chrono magic!!!" />
+    <MESSAGE value="[main] Use PLAYER_{WIDTH,HEIGHT} everywhere." />
+    <option name="LAST_COMMIT_MESSAGE" value="[main] Use PLAYER_{WIDTH,HEIGHT} everywhere." />
   </component>
 </project>

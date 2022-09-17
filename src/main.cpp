@@ -53,6 +53,7 @@ constexpr Duration FRAME_DURATION = 1.0s / 60;
 // Sounds
 Mix_Chunk *sound_shoot = nullptr;
 Mix_Chunk *sound_explosion = nullptr;
+Mix_Chunk *sound_hit = nullptr;
 SDL_Texture *player_texture = nullptr;
 
 void makeStaticSprite(Entity entity, Coordinator &ecs, Position initPos,
@@ -77,7 +78,6 @@ void makeAnimatedSprite(Entity entity, Coordinator &ecs, Position initPos,
   ecs.getComponent<Position>(entity) = initPos;
 
   auto &animation_component = ecs.getComponent<Animation>(entity);
-  // TODO: Actually *copy* the Animation.
   animation_component = animation;
   auto &render_copy = ecs.getComponent<RenderCopy>(entity);
   render_copy.texture = texture;
@@ -86,6 +86,26 @@ void makeAnimatedSprite(Entity entity, Coordinator &ecs, Position initPos,
 }
 
 std::vector<GameEvent> events;
+
+Entity makeExplosion(Coordinator &ecs, Position initPos, SDL_Texture *texture) {
+  auto explosion = ecs.newEntity();
+  {
+    constexpr Animation explosion_animation{
+        {
+            0,
+            0,
+            32,
+            32,
+        },
+        0,
+        4,
+        5 * FRAME_DURATION,
+    };
+    makeAnimatedSprite(explosion, ecs, initPos, texture, explosion_animation);
+    ecs.addComponent<LifeTime>(explosion);
+    ecs.getComponent<LifeTime>(explosion) = {{}, explosion_animation.length()};
+  }
+}
 
 Entity makeBullet(Coordinator &ecs, Position initPos, Velocity initVel,
                   SDL_Texture *texture, const CollisionBounds &bounds,
@@ -103,7 +123,6 @@ Entity makeBullet(Coordinator &ecs, Position initPos, Velocity initVel,
         },
         0,
         animation_steps,
-        {},
         5 * FRAME_DURATION,
     };
     makeAnimatedSprite(bullet, ecs, initPos, texture, bullet_animation);
@@ -118,6 +137,21 @@ Entity makeBullet(Coordinator &ecs, Position initPos, Velocity initVel,
   return bullet;
 }
 
+struct LifeTimeSystem : System {
+  LifeTimeSystem(const Signature &sig, Coordinator &coord)
+      : System(sig, coord) {}
+
+  void run(const std::set<Entity> &entities, Coordinator &coord,
+           const Duration delta) override {
+    for (const auto &e : entities) {
+      auto &lifetime = coord.getComponent<LifeTime>(e);
+      lifetime.lived += delta;
+      if (lifetime.lived >= lifetime.lifespan) {
+        coord.queueDestroyEntity(e);
+      }
+    }
+  }
+};
 struct AlienEncroachmentSystem : System {
   int border;
   AlienEncroachmentSystem(const Tecs::Signature &sig, Tecs::Coordinator &coord,
@@ -133,7 +167,15 @@ struct AlienEncroachmentSystem : System {
   }
 };
 struct DeathSystem : System {
-  using System::System;
+  SDL_Texture *explosion_texture;
+
+  const std::vector<Entity> barriers;
+
+  DeathSystem(const Signature &sig, Coordinator &coord,
+              SDL_Texture *explosionTexture,
+              const std::vector<Entity> the_barriers)
+      : System(sig, coord), explosion_texture(explosionTexture),
+        barriers(the_barriers) {}
 
   void run(const std::set<Entity> &entities, Coordinator &ecs,
            const Duration delta) override {
@@ -141,13 +183,17 @@ struct DeathSystem : System {
       const auto &health = ecs.getComponent<Health>(e);
       if (health.current <= 0.0) {
         ecs.queueDestroyEntity(e);
-        Mix_PlayChannel(-1, sound_explosion, 0);
 
-        if (ecs.hasComponent<Player>(e)) {
+        const bool is_player = ecs.hasComponent<Player>(e);
+        if (is_player) {
           events.push_back(GameEvent::GameOver);
         }
-        if (ecs.hasComponent<Alien>(e)) {
+        const bool is_alien = ecs.hasComponent<Alien>(e);
+        if (is_alien) {
           events.push_back(GameEvent::Scored);
+        }
+        if (is_player || is_alien) {
+          makeExplosion(ecs, ecs.getComponent<Position>(e), explosion_texture);
         }
       }
     }
@@ -176,7 +222,18 @@ struct CollisionSystem : System {
                                    bBounds.rectangle(bPos))) &&
             ((aBounds.layer & bBounds.layer) != LayerMask{0})) {
           aHealth.current -= 1.0;
-          ecs.getComponent<Health>(b).current -= 1.0;
+          Health &bHealth = ecs.getComponent<Health>(b);
+          bHealth.current -= 1.0;
+
+          if (ecs.hasComponent<Player>(a) || ecs.hasComponent<Player>(b)) {
+            Mix_PlayChannel(-1, sound_explosion, 0);
+            std::this_thread::sleep_for(10 * FRAME_DURATION);
+          } else if (aHealth.current > 0 || bHealth.current > 0) {
+            Mix_PlayChannel(-1, sound_hit, 0);
+          } else {
+            Mix_PlayChannel(-1, sound_explosion, 0);
+          }
+
           if ((aBounds.layer & bBounds.layer & LayerMask{0x4}) !=
               LayerMask{0}) {
             events.push_back(GameEvent::GameOver);
@@ -251,7 +308,16 @@ struct PlayerControlSystem : System {
       shot_delta += delta;
 
       if (keyboardState[SDL_SCANCODE_SPACE] && shot_delta >= FIRE_FREQUENCY) {
-        makeBullet(ecs, pos, {{0, -480}}, bullet_texture, {{2, 4}, 0x1}, 2);
+        makeBullet(ecs, pos,
+                   {
+                       {0, -480},
+                   },
+                   bullet_texture,
+                   {
+                       {2, 4},
+                       0x1,
+                   },
+                   2);
         shot_delta = Duration::zero();
       }
 
@@ -326,8 +392,8 @@ struct StaticSpriteRenderingSystem : System {
 struct AnimatedSpriteRenderingSystem : System {
   SDL_Renderer *renderer = nullptr;
 
-  // TODO: Animation must be added before RenderCopy, so the static renderer
-  // doesn't get it.
+  // Animation must be added before RenderCopy, so the static renderer doesn't
+  // get it.
   AnimatedSpriteRenderingSystem(const Signature &sig, Coordinator &coord,
                                 SDL_Renderer *renderer)
       : System(sig, coord), renderer(renderer) {}
@@ -495,6 +561,7 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
   const auto COLLISION_BOUNDS_COMPONENT =
       ecs.registerComponent<CollisionBounds>();
   const auto ANIMATION_COMPONENT = ecs.registerComponent<Animation>();
+  const auto LIFETIME_COMPONENT = ecs.registerComponent<LifeTime>();
 
   // Set up player.
   auto player = ecs.newEntity();
@@ -509,7 +576,8 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
   ecs.addComponent<HealthBar>(player);
   ecs.getComponent<HealthBar>(player) = {35.0};
   ecs.addComponent<CollisionBounds>(player);
-  ecs.getComponent<CollisionBounds>(player) = {{PLAYER_WIDTH/2, PLAYER_HEIGHT/2}, 0x2 | 0x4};
+  ecs.getComponent<CollisionBounds>(player) = {
+      {PLAYER_WIDTH / 2, PLAYER_HEIGHT / 2}, 0x2 | 0x4};
 
   // Add level text box.
   Entity level_text_entity = ecs.newEntity();
@@ -558,7 +626,8 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
       auto alien = ecs.newEntity();
       glm::vec2 pos = {i * 50 + j * 2, j * 60};
       alien_animation.current_step_time = Duration(step_frames_rng(eng));
-      std::cout << "This alien's initial step time will be: " << alien_animation.current_step_time << std::endl;
+      std::cout << "This alien's initial step time will be: "
+                << alien_animation.current_step_time << std::endl;
       makeAnimatedSprite(
           alien, ecs, {{pos.x + j * 20, pos.y}},
           alien_textures[alien_textures.size() * (j - 1) / alien_rows],
@@ -580,8 +649,10 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
 
   // Set up barriers.
   auto *barrierTexture = sdl.loadTexture("art/barrier.png");
+  std::vector<Entity> barriers;
   for (int i = 0; i < 4; ++i) {
     auto barrier = ecs.newEntity();
+    barriers.push_back(barrier);
     constexpr int BARRIER_SCALE = 3;
     makeStaticSprite(barrier, ecs,
                      {{sdl.windowDimensions.w * (0.5 + i) / 4.0,
@@ -626,7 +697,10 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
           {HEALTH_COMPONENT, HEALTH_BAR_COMPONENT, POSITION_COMPONENT}),
       ecs, sdl.renderer);
 
-  DeathSystem deathSystem(componentsSignature({HEALTH_COMPONENT}), ecs);
+  DeathSystem deathSystem(componentsSignature({HEALTH_COMPONENT}), ecs,
+                          sdl.loadTexture("art/explosion.png"), barriers);
+
+  LifeTimeSystem lifeTimeSystem(componentsSignature({LIFETIME_COMPONENT}), ecs);
 
   EnemyShootingSystem enemyShootingSystem(
       componentsSignature({ALIEN_COMPONENT, POSITION_COMPONENT}), ecs,
@@ -651,6 +725,7 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
   bool quit = false;
 
   auto previous_tick = TimePoint::clock::now() - FRAME_DURATION;
+  auto previous_frame = TimePoint::clock::now() - FRAME_DURATION;
 
   while (!quit) {
 
@@ -675,8 +750,14 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
 
     runSystem(collisionSystem, ecs, delta);
     runSystem(alienEncroachmentSystem, ecs, delta);
+
+    // Systems specifically for destroying entities.
+    runSystem(lifeTimeSystem, ecs, delta);
     runSystem(offscreenSystem, ecs, delta);
     runSystem(deathSystem, ecs, delta);
+
+    // Prevent destroyed entities from rendering for an extra frame.
+    ecs.destroyQueued();
 
     SDL_SetRenderDrawColor(sdl.renderer, 0x00, 0x00, 0x00, 0x00);
     sdl.renderClear();
@@ -690,7 +771,6 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
     runSystem(animatedSpriteRenderingSystem, ecs, delta);
     runSystem(healthBarSystem, ecs, delta);
     sdl.renderPresent();
-
     // Process events
     for (const auto &event : events) {
       switch (event) {
@@ -713,8 +793,6 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
       }
     }
     events.clear();
-
-    ecs.destroyQueued();
 
     previous_tick = tick;
     std::this_thread::sleep_until(tick + FRAME_DURATION);
@@ -749,6 +827,10 @@ int main() {
   }
   sound_shoot = Mix_LoadWAV("sound/shoot.wav");
   if (sound_shoot == nullptr) {
+    throw SDL::Error(__FILE__, __LINE__);
+  }
+  sound_hit = Mix_LoadWAV("sound/hit.wav");
+  if (sound_hit == nullptr) {
     throw SDL::Error(__FILE__, __LINE__);
   }
 

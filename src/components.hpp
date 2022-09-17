@@ -26,6 +26,11 @@ struct Animation {
   int n_steps;
   Tecs::Duration step_time;
   Tecs::Duration current_step_time{};
+
+  Tecs::Duration length() const {
+    using namespace std::chrono_literals;
+    return n_steps * step_time;
+  }
 };
 struct Health {
   float current;
@@ -33,5 +38,9 @@ struct Health {
 };
 struct HealthBar {
   float hover_distance;
+};
+struct LifeTime {
+  Tecs::Duration lived;
+  Tecs::Duration lifespan;
 };
 #endif // GAME_COMPONENTS_HPP
