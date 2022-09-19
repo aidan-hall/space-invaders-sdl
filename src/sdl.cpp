@@ -93,7 +93,8 @@ Context::~Context() {
   TTF_Quit();
   Mix_Quit();
   IMG_Quit();
-  SDL_Quit();
+  // Called when game ends anyway; had been hanging. Should resolve?!
+  // SDL_Quit();
 }
 
 SDL_Texture *Context::fancyTextureFromSurface(SDL_Surface *surface) {
