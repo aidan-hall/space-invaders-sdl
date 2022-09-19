@@ -226,17 +226,18 @@ struct DeathSystem : System {
       if (health.current <= 0.0) {
         ecs.queueDestroyEntity(e);
 
-        bool is_player;
-        bool is_alien;
-        bool is_mothership;
-        if ((is_player = ecs.hasComponent<Player>(e))) {
+        bool explosive = true;
+        if (ecs.hasComponent<Player>(e)) {
           events.push_back(GameEvent::GameOver);
-        } else if ((is_alien = ecs.hasComponent<Alien>(e))) {
+        } else if (ecs.hasComponent<Alien>(e)) {
           events.push_back(GameEvent::Scored);
-        } else if ((is_mothership = ecs.hasComponent<Mothership>(e))) {
+        } else if (ecs.hasComponent<Mothership>(e)) {
           events.push_back(GameEvent::KilledMothership);
+        } else {
+          explosive = false;
         }
-        if (is_player || is_alien || is_mothership) {
+
+        if (explosive) {
           makeExplosion(ecs, ecs.getComponent<Position>(e), explosion_texture);
         }
       }
