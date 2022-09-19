@@ -18,6 +18,7 @@ constexpr Duration MIN_STEP_DURATION = 50ms;
 
 void AlienMovementSystem::run(const std::set<Entity> &entities,
                               Coordinator &ecs, const Duration delta) {
+  std::ignore = delta;
   for (const auto &e : entities) {
     auto &[pos] = ecs.getComponent<Position>(e);
     auto &[vel] = ecs.getComponent<Velocity>(e);

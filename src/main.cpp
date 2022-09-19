@@ -201,6 +201,7 @@ struct AlienEncroachmentSystem : System {
       : System(sig, coord), border{window_height - 80} {}
   void run(const std::set<Entity> &aliens, Coordinator &ecs,
            const Duration delta) override {
+    std::ignore = delta;
     for (const auto &e : aliens) {
       if (ecs.getComponent<Position>(e).p.y > border) {
         events.push_back(GameEvent::GameOver);
@@ -221,6 +222,7 @@ struct DeathSystem : System {
 
   void run(const std::set<Entity> &entities, Coordinator &ecs,
            const Duration delta) override {
+    std::ignore = delta;
     for (const auto &e : entities) {
       const auto &health = ecs.getComponent<Health>(e);
       if (health.current <= 0.0) {
@@ -252,6 +254,7 @@ struct CollisionSystem : System {
   using System::System;
   void run(const std::set<Entity> &entities, Coordinator &ecs,
            const Duration delta) override {
+    std::ignore = delta;
     for (const auto &a : entities) {
       const auto &aPos = ecs.getComponent<Position>(a);
       const auto &aBounds = ecs.getComponent<CollisionBounds>(a);
@@ -296,6 +299,7 @@ struct HealthBarSystem : System {
 
   void run(const std::set<Entity> &entities, Coordinator &ecs,
            const Duration delta) override {
+    std::ignore = delta;
     constexpr int BAR_HEIGHT = 5;
     constexpr int BAR_LENGTH = 30;
     SDL_Rect current_bar;
@@ -401,6 +405,7 @@ struct OffscreenSystem : System {
 
   void run(const std::set<Entity> &entities, Coordinator &ecs,
            const Duration delta) override {
+    std::ignore = delta;
     for (const auto &e : entities) {
       const auto bounds = ecs.getComponent<CollisionBounds>(e);
       if (not rectangleIntersection(
@@ -424,6 +429,7 @@ struct StaticSpriteRenderingSystem : System {
 
   void run(const std::set<Entity> &entities, Coordinator &ecs,
            const Duration delta) override {
+    std::ignore = delta;
     for (const auto &e : entities) {
       const auto &[pos] = ecs.getComponent<Position>(e);
       const auto &render_copy = ecs.getComponent<RenderCopy>(e);
@@ -495,6 +501,7 @@ struct EnemyShootingSystem : System {
   int nextFire = 0;
   void run(const std::set<Entity> &entities, Coordinator &ecs,
            const Duration delta) override {
+    std::ignore = delta;
     for (const auto &e : entities) {
       // Generate a binomially distributed random number indicating how many
       // aliens to go along before firing.
@@ -613,7 +620,7 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
       ecs.registerComponent<CollisionBounds>();
   const auto ANIMATION_COMPONENT = ecs.registerComponent<Animation>();
   const auto LIFETIME_COMPONENT = ecs.registerComponent<LifeTime>();
-  const auto MOTHERSHIP_COMPONENT = ecs.registerComponent<Mothership>();
+  ecs.registerComponent<Mothership>();
 
   // Set up player.
   auto player = ecs.newEntity();
@@ -776,13 +783,12 @@ GameEvent gameplay(SDL::Context &sdl, const int alien_rows,
   bool quit = false;
 
   auto previous_tick = TimePoint::clock::now() - FRAME_DURATION;
-  auto previous_frame = TimePoint::clock::now() - FRAME_DURATION;
 
   auto mothership_rng_engine =
       std::default_random_engine(std::random_device()());
   std::uniform_int_distribution<int> mothership_rng(0, 256);
 
-  auto mothership_texture = sdl.loadTexture("art/mothership.png");
+  auto *mothership_texture = sdl.loadTexture("art/mothership.png");
 
   bool mothership_active = false;
 
