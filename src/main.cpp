@@ -146,6 +146,7 @@ Entity makeExplosion(Coordinator &ecs, Position initPos, SDL_Texture *texture) {
     ecs.addComponent<LifeTime>(explosion);
     ecs.getComponent<LifeTime>(explosion) = {{}, explosion_animation.length()};
   }
+  return explosion;
 }
 
 Entity makeBullet(Coordinator &ecs, Position initPos, Velocity initVel,
