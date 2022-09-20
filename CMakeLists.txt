@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.15)
 
 # Project.
-project(Game VERSION 0.1)
+project(SpaceInvaders VERSION 0.1)
 set(CMAKE_EXPORT_COMPILE_COMMANDS True)
 
 # C Standard.
@@ -10,25 +10,25 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 # Executable
-add_executable(Game src/tecs.cpp src/sdl.cpp src/main.cpp src/alien_movement_system.cpp)
+add_executable(SpaceInvaders src/tecs.cpp src/sdl.cpp src/main.cpp src/alien_movement_system.cpp)
 
 # Includes
 
-target_include_directories(Game PRIVATE "${CMAKE_SOURCE_DIR}/include")
+target_include_directories(SpaceInvaders PRIVATE "${CMAKE_SOURCE_DIR}/include")
 
 # Files.
 # Libraries.
 find_package(SDL2 REQUIRED)
-target_link_libraries(Game PRIVATE SDL2::SDL2)
-target_link_libraries(Game PRIVATE SDL2_image)
-target_link_libraries(Game PRIVATE SDL2_ttf)
-target_link_libraries(Game PRIVATE SDL2_mixer)
+target_link_libraries(SpaceInvaders PRIVATE SDL2::SDL2)
+target_link_libraries(SpaceInvaders PRIVATE SDL2_image)
+target_link_libraries(SpaceInvaders PRIVATE SDL2_ttf)
+target_link_libraries(SpaceInvaders PRIVATE SDL2_mixer)
 
 add_subdirectory("${CMAKE_SOURCE_DIR}/external/glm")
-target_link_libraries(Game PRIVATE glm)
+target_link_libraries(SpaceInvaders PRIVATE glm)
 
 # Installation.
-target_compile_options(Game PRIVATE
+target_compile_options(SpaceInvaders PRIVATE
   -Wpedantic
   -Wall
   -Wextra

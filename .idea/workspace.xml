@@ -8,8 +8,8 @@
   </component>
   <component name="CMakeRunConfigurationManager">
     <generated>
-      <config projectName="Game" targetName="Game" />
-      <config projectName="Game" targetName="uninstall" />
+      <config projectName="SpaceInvaders" targetName="SpaceInvaders" />
+      <config projectName="SpaceInvaders" targetName="uninstall" />
     </generated>
   </component>
   <component name="CMakeSettings" AUTO_RELOAD="true">
@@ -19,7 +19,8 @@
     </configurations>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ca59b7ee-668b-4c07-bfea-5ee22d671d46" name="Changes" comment="Added mothership (10 points!)">
+    <list default="true" id="ca59b7ee-668b-4c07-bfea-5ee22d671d46" name="Changes" comment="Renamed project to SpaceInvaders">
+      <change beforePath="$PROJECT_DIR$/.idea/.name" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.name" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -68,24 +69,30 @@
     "structure.view.defaults.are.configured": "true"
   }
 }]]></component>
-  <component name="RunManager" selected="CMake Application.Game">
+  <component name="RunManager" selected="CMake Application.SpaceInvaders">
     <configuration default="true" type="CLionExternalRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
       <method v="2">
         <option name="CLION.EXTERNAL.BUILD" enabled="true" />
       </method>
     </configuration>
-    <configuration name="Game" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" WORKING_DIR="file://$PROJECT_DIR$" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Game" TARGET_NAME="Game" CONFIG_NAME="Debug" RUN_TARGET_PROJECT_NAME="Game" RUN_TARGET_NAME="Game">
+    <configuration name="Game" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" WORKING_DIR="file://$PROJECT_DIR$" PASS_PARENT_ENVS_2="true" PROJECT_NAME="SpaceInvaders" TARGET_NAME="Game" CONFIG_NAME="Debug" RUN_TARGET_PROJECT_NAME="SpaceInvaders" RUN_TARGET_NAME="Game">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="uninstall" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Game" TARGET_NAME="uninstall" CONFIG_NAME="Debug">
+    <configuration name="SpaceInvaders" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" WORKING_DIR="file://$ContentRoot$" PASS_PARENT_ENVS_2="true" PROJECT_NAME="SpaceInvaders" TARGET_NAME="SpaceInvaders" CONFIG_NAME="Debug" RUN_TARGET_PROJECT_NAME="SpaceInvaders" RUN_TARGET_NAME="SpaceInvaders">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="uninstall" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="SpaceInvaders" TARGET_NAME="uninstall" CONFIG_NAME="Debug">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
     <list>
       <item itemvalue="CMake Application.Game" />
+      <item itemvalue="CMake Application.SpaceInvaders" />
       <item itemvalue="CMake Application.uninstall" />
     </list>
   </component>
@@ -106,7 +113,7 @@
       <workItem from="1663419921879" duration="8924000" />
       <workItem from="1663587716357" duration="1948000" />
       <workItem from="1663589686293" duration="3372000" />
-      <workItem from="1663659555032" duration="700000" />
+      <workItem from="1663659555032" duration="1049000" />
     </task>
     <task id="LOCAL-00001" summary="[.idea] Cleanup">
       <created>1663166027703</created>
@@ -199,7 +206,21 @@
       <option name="project" value="LOCAL" />
       <updated>1663428848180</updated>
     </task>
-    <option name="localTasksCounter" value="14" />
+    <task id="LOCAL-00014" summary="[.idea/workspace.xml] build/{debug,release}">
+      <created>1663660380957</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1663660380957</updated>
+    </task>
+    <task id="LOCAL-00015" summary="Renamed project to SpaceInvaders">
+      <created>1663660574091</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1663660574091</updated>
+    </task>
+    <option name="localTasksCounter" value="16" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -228,17 +249,8 @@
     <MESSAGE value="[main] Use PLAYER_{WIDTH,HEIGHT} everywhere." />
     <MESSAGE value="+ Explosion animation, player hit-stop." />
     <MESSAGE value="Added mothership (10 points!)" />
-    <option name="LAST_COMMIT_MESSAGE" value="Added mothership (10 points!)" />
-  </component>
-  <component name="XDebuggerManager">
-    <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
-          <url>file://$PROJECT_DIR$/src/main.cpp</url>
-          <line>147</line>
-          <option name="timeStamp" value="28" />
-        </line-breakpoint>
-      </breakpoints>
-    </breakpoint-manager>
+    <MESSAGE value="[.idea/workspace.xml] build/{debug,release}" />
+    <MESSAGE value="Renamed project to SpaceInvaders" />
+    <option name="LAST_COMMIT_MESSAGE" value="Renamed project to SpaceInvaders" />
   </component>
 </project>
