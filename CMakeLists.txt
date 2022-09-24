@@ -10,7 +10,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 # Executable
-add_executable(SpaceInvaders src/tecs.cpp src/sdl.cpp src/main.cpp src/alien_movement_system.cpp)
+add_executable(SpaceInvaders src/tecs.cpp src/main.cpp src/alien_movement_system.cpp)
 
 # Includes
 
@@ -18,14 +18,11 @@ target_include_directories(SpaceInvaders PRIVATE "${CMAKE_SOURCE_DIR}/include")
 
 # Files.
 # Libraries.
-find_package(SDL2 REQUIRED)
-target_link_libraries(SpaceInvaders PRIVATE SDL2::SDL2)
-target_link_libraries(SpaceInvaders PRIVATE SDL2_image)
-target_link_libraries(SpaceInvaders PRIVATE SDL2_ttf)
-target_link_libraries(SpaceInvaders PRIVATE SDL2_mixer)
 
 add_subdirectory("${CMAKE_SOURCE_DIR}/external/glm")
+add_subdirectory("${CMAKE_SOURCE_DIR}/external/sdlpp")
 target_link_libraries(SpaceInvaders PRIVATE glm)
+target_link_libraries(SpaceInvaders PRIVATE sdlpp)
 
 # Installation.
 target_compile_options(SpaceInvaders PRIVATE
