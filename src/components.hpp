@@ -1,7 +1,7 @@
 #ifndef GAME_COMPONENTS_HPP
 #define GAME_COMPONENTS_HPP
 
-#include <SDL_render.h>
+#include <SDL2/SDL_render.h>
 #include <glm/ext/vector_float2.hpp>
 #include <tecs.hpp>
 

@@ -4,3 +4,6 @@
 [submodule "external/sdlpp"]
 	path = external/sdlpp
 	url = git@gitlab.com:aidanhall/sdlpp.git
+[submodule "external/tecs"]
+	path = external/tecs
+	url = git@gitlab.com:aidanhall/tecs.git
